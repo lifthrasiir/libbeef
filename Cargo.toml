@@ -1,0 +1,28 @@
+[package]
+name = "beef"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A Rust translation of Fabrice Bellard's libbf arbitrary precision numeric library."
+repository = ""
+
+[lib]
+name = "beef"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = []
+num-traits = []
+num-integer = ["num-traits"]
+serde = []
+vs = ["vs_num_bigint", "vs_rug", "vs_malachite"]
+vs_num_bigint = ["dep:num-bigint"]
+vs_rug = ["dep:rug"]
+vs_malachite = ["dep:malachite-nz"]
+
+[dependencies]
+num-bigint = { version = "0.4", optional = true }
+rug = { version = "1", optional = true }
+malachite-nz = { version = "0.4", optional = true }
+
