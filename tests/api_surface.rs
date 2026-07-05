@@ -1,5 +1,5 @@
-use beef::format::{formats, StaticFormat};
-use beef::{BigDecimal, BigFloat, Decimal, Float, FpCategory, Sign};
+use libbeef::format::{formats, StaticFormat};
+use libbeef::{BigDecimal, BigFloat, Decimal, Float, FpCategory, Sign};
 
 #[test]
 fn big_float_special_values_are_classified() {
@@ -36,9 +36,9 @@ fn f64_constructor_uses_normalized_significand_shape() {
 
 #[test]
 fn static_format_converts_to_big_format() {
-    assert_eq!(formats::Binary64::FORMAT, beef::BigFormat::BINARY64);
-    assert_eq!(formats::Binary128::FORMAT, beef::BigFormat::BINARY128);
-    assert_eq!(formats::Decimal64::FORMAT, beef::BigFormat::DECIMAL64);
+    assert_eq!(formats::Binary64::FORMAT, libbeef::BigFormat::BINARY64);
+    assert_eq!(formats::Binary128::FORMAT, libbeef::BigFormat::BINARY128);
+    assert_eq!(formats::Decimal64::FORMAT, libbeef::BigFormat::DECIMAL64);
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn static_float_remainder_uses_its_format() {
     let b = F64::from_big(BigFloat::from_f64(2.0));
     let (value, status) = (a % b)
         .into_big()
-        .to_f64_status(beef::Rounding::NearestEven);
+        .to_f64_status(libbeef::Rounding::NearestEven);
 
     assert!(status.is_empty());
     assert_eq!(value.to_bits(), (5.5_f64 % 2.0).to_bits());
@@ -74,7 +74,7 @@ fn static_float_transcendental_methods_use_their_format() {
 
     let x = F64::from_big(BigFloat::from_f64(0.25));
     let y = x.exp().log();
-    let value = y.into_big().to_f64(beef::Rounding::NearestEven);
+    let value = y.into_big().to_f64(libbeef::Rounding::NearestEven);
 
     assert_eq!(value.to_bits(), 0.25_f64.exp().ln().to_bits());
 }
@@ -96,7 +96,7 @@ fn static_decimal_unary_methods_use_their_format() {
 
     let y = D64::from_big(BigDecimal::from_scaled_i64(15, 1));
     assert_eq!(
-        y.rint(beef::Rounding::NearestEven).into_big(),
+        y.rint(libbeef::Rounding::NearestEven).into_big(),
         BigDecimal::from_i64(2)
     );
 }
@@ -113,7 +113,7 @@ fn static_decimal_binary_methods_use_digit_precision() {
         sum.into_big().to_decimal_string().as_deref(),
         Some("12345678901234570")
     );
-    assert!(status.contains(beef::Status::INEXACT));
+    assert!(status.contains(libbeef::Status::INEXACT));
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn to_string_radix_no_double_dot() {
     // Non-power-of-2 radix with multiple digits should not produce double dots
     for n_digits in 2..=8_u64 {
         let s = val
-            .to_string_radix(10, n_digits, beef::Rounding::NearestEven, true)
+            .to_string_radix(10, n_digits, libbeef::Rounding::NearestEven, true)
             .unwrap();
         assert!(
             !s.contains(".."),
@@ -130,7 +130,7 @@ fn to_string_radix_no_double_dot() {
         );
 
         let s2 = val
-            .to_string_radix(10, n_digits, beef::Rounding::NearestEven, false)
+            .to_string_radix(10, n_digits, libbeef::Rounding::NearestEven, false)
             .unwrap();
         assert!(
             !s2.contains(".."),
@@ -141,7 +141,7 @@ fn to_string_radix_no_double_dot() {
     // Also test other non-power-of-2 radices
     for radix in [3_u8, 5, 6, 7, 9, 10, 12] {
         for n_digits in 1..=6_u64 {
-            if let Some(s) = val.to_string_radix(radix, n_digits, beef::Rounding::NearestEven, true)
+            if let Some(s) = val.to_string_radix(radix, n_digits, libbeef::Rounding::NearestEven, true)
             {
                 assert!(
                     !s.contains(".."),
@@ -156,16 +156,16 @@ fn to_string_radix_no_double_dot() {
 fn logic_and_negative_with_wider_positive() {
     // -1 & x == x for any positive integer x (regression: the result length
     // must follow the positive operand when the other operand is negative)
-    let a = beef::BigFloat::from_i64(-1);
-    let b = beef::BigFloat::from_f64(79228162514264337593543950336.0); // 2^96
+    let a = libbeef::BigFloat::from_i64(-1);
+    let b = libbeef::BigFloat::from_f64(79228162514264337593543950336.0); // 2^96
     let r = a.logic_and(&b);
     assert_eq!(r.cmp_total(&b), core::cmp::Ordering::Equal);
     // xor consistency: (-1 ^ x) == -(x + 1)
-    let inf = beef::BigFormat {
-        precision: beef::Precision::Infinite,
-        ..beef::BigFormat::BINARY64
+    let inf = libbeef::BigFormat {
+        precision: libbeef::Precision::Infinite,
+        ..libbeef::BigFormat::BINARY64
     };
-    let x = beef::BigFloat::from_i64(-1).logic_xor(&b);
-    let expected = b.add(&beef::BigFloat::from_i64(1), inf).neg();
+    let x = libbeef::BigFloat::from_i64(-1).logic_xor(&b);
+    let expected = b.add(&libbeef::BigFloat::from_i64(1), inf).neg();
     assert_eq!(x.cmp_total(&expected), core::cmp::Ordering::Equal);
 }

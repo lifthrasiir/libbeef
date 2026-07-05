@@ -73,10 +73,10 @@ impl BigFloat {
     /// Corresponds to `bf_mul_2exp` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let x = BigFloat::from_i64(3);
     /// let y = x.mul_exp2(4); // 3 * 16 = 48
-    /// let f = y.to_f64(beef::Rounding::NearestEven);
+    /// let f = y.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 48.0);
     /// ```
     pub fn mul_exp2(&self, e: i64) -> Self {
@@ -93,10 +93,10 @@ impl BigFloat {
     /// Corresponds to `bf_mul_si` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let x = BigFloat::from_i64(7);
     /// let y = x.mul_i64(-3, BigFormat::BINARY64);
-    /// let f = y.to_f64(beef::Rounding::NearestEven);
+    /// let f = y.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, -21.0);
     /// ```
     pub fn mul_i64(&self, b: i64, format: BigFormat) -> Self {
@@ -116,10 +116,10 @@ impl BigFloat {
     /// Corresponds to `bf_mul_ui` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let x = BigFloat::from_i64(5);
     /// let y = x.mul_u64(4, BigFormat::BINARY64);
-    /// let f = y.to_f64(beef::Rounding::NearestEven);
+    /// let f = y.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 20.0);
     /// ```
     pub fn mul_u64(&self, b: u64, format: BigFormat) -> Self {
@@ -132,10 +132,10 @@ impl BigFloat {
     /// Corresponds to `bf_add_si` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let x = BigFloat::from_i64(10);
     /// let y = x.add_i64(-3, BigFormat::BINARY64);
-    /// let f = y.to_f64(beef::Rounding::NearestEven);
+    /// let f = y.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 7.0);
     /// ```
     pub fn add_i64(&self, b: i64, format: BigFormat) -> Self {
@@ -148,7 +148,7 @@ impl BigFloat {
     /// Corresponds to `bf_remquo` in libbf. Returns `(quotient_low_bits, remainder)`.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let x = BigFloat::from_i64(7);
     /// let y = BigFloat::from_i64(3);
     /// let (q, r) = x.remquo(&y, BigFormat::BINARY64, Rounding::NearestEven);
@@ -181,9 +181,9 @@ impl BigFloat {
     /// with binary splitting for fast convergence.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let pi = BigFloat::pi(BigFormat::BINARY64);
-    /// let f = pi.to_f64(beef::Rounding::NearestEven);
+    /// let f = pi.to_f64(libbeef::Rounding::NearestEven);
     /// assert!((f - std::f64::consts::PI).abs() < 1e-15);
     /// ```
     pub fn pi(format: BigFormat) -> Self {
@@ -203,9 +203,9 @@ impl BigFloat {
     /// efficient high-precision computation.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let ln2 = BigFloat::log2(BigFormat::BINARY64);
-    /// let f = ln2.to_f64(beef::Rounding::NearestEven);
+    /// let f = ln2.to_f64(libbeef::Rounding::NearestEven);
     /// assert!((f - std::f64::consts::LN_2).abs() < 1e-15);
     /// ```
     pub fn log2(format: BigFormat) -> Self {
@@ -266,10 +266,10 @@ impl BigFloat {
     /// and a Taylor series.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let one = BigFloat::from_i64(1);
     /// let e = one.exp(BigFormat::BINARY64);
-    /// let f = e.to_f64(beef::Rounding::NearestEven);
+    /// let f = e.to_f64(libbeef::Rounding::NearestEven);
     /// assert!((f - std::f64::consts::E).abs() < 1e-15);
     /// ```
     pub fn exp(&self, format: BigFormat) -> Self {
@@ -316,7 +316,7 @@ impl BigFloat {
     /// AGM-like series.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let e = BigFloat::from_i64(1).exp(BigFormat::BINARY64);
     /// let ln_e = e.log(BigFormat::BINARY64);
     /// let f = ln_e.to_f64(Rounding::NearestEven);
@@ -369,7 +369,7 @@ impl BigFloat {
     /// a Taylor series.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let zero = BigFloat::from_i64(0);
     /// let cos0 = zero.cos(BigFormat::BINARY64);
     /// let f = cos0.to_f64(Rounding::NearestEven);
@@ -422,7 +422,7 @@ impl BigFloat {
     /// a Taylor series.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let half_pi = BigFloat::pi(BigFormat::BINARY64)
     ///     .mul_exp2(-1);
     /// let sin_val = half_pi.sin(BigFormat::BINARY64);
@@ -471,7 +471,7 @@ impl BigFloat {
     /// Corresponds to `bf_tan` in libbf. Computed as sin/cos.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let zero = BigFloat::from_i64(0);
     /// let tan0 = zero.tan(BigFormat::BINARY64);
     /// let f = tan0.to_f64(Rounding::NearestEven);
@@ -543,7 +543,7 @@ impl BigFloat {
     /// Taylor series.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let one = BigFloat::from_i64(1);
     /// let atan1 = one.atan(BigFormat::BINARY64);
     /// let f = atan1.to_f64(Rounding::NearestEven);
@@ -578,7 +578,7 @@ impl BigFloat {
     /// Corresponds to `bf_atan2` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let one = BigFloat::from_i64(1);
     /// let zero = BigFloat::from_i64(0);
     /// let angle = one.atan2(&zero, BigFormat::BINARY64);
@@ -633,7 +633,7 @@ impl BigFloat {
     /// Corresponds to `bf_asin` in libbf. Computed via atan.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let one = BigFloat::from_i64(1);
     /// let asin1 = one.asin(BigFormat::BINARY64);
     /// let f = asin1.to_f64(Rounding::NearestEven);
@@ -691,7 +691,7 @@ impl BigFloat {
     /// Corresponds to `bf_acos` in libbf. Computed via atan.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let zero = BigFloat::from_i64(0);
     /// let acos0 = zero.acos(BigFormat::BINARY64);
     /// let f = acos0.to_f64(Rounding::NearestEven);
@@ -802,7 +802,7 @@ impl BigFloat {
     /// non-integer exponents.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     /// let two = BigFloat::from_i64(2);
     /// let ten = BigFloat::from_i64(10);
     /// let result = two.pow(&ten, BigFormat::BINARY64);

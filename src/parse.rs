@@ -9,7 +9,7 @@ use crate::format::BigFormat;
 /// `bf_atof` / `bf_atof2` in libbf.
 ///
 /// ```
-/// use beef::parse::ParseOptions;
+/// use libbeef::parse::ParseOptions;
 ///
 /// let opts = ParseOptions::default();
 /// assert!(!opts.allow_hex_prefix);

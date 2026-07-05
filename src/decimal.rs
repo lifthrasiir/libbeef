@@ -25,7 +25,7 @@ pub type Limb = u64;
 /// and signed zeros.
 ///
 /// ```
-/// use beef::BigDecimal;
+/// use libbeef::BigDecimal;
 ///
 /// let x = BigDecimal::parse_decimal("3.14").unwrap();
 /// let s = x.to_decimal_string().unwrap();
@@ -45,7 +45,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_init` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::new();
     /// assert!(x.is_zero());
@@ -95,7 +95,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_set_si` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::from_i64(42);
     /// assert_eq!(x.to_decimal_string().unwrap(), "42");
@@ -112,7 +112,7 @@ impl BigDecimal {
     /// Exposes the internal scaled representation.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::from_scaled_i64(314, 2);
     /// assert_eq!(x.to_decimal_string().unwrap(), "3.14");
@@ -136,7 +136,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_atof` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::parse_decimal("3.14e2").unwrap();
     /// assert_eq!(x.to_decimal_string().unwrap(), "314");
@@ -218,7 +218,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_ftoa` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::from_i64(-7);
     /// assert_eq!(x.to_decimal_string().unwrap(), "-7");
@@ -266,7 +266,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_add` in libbf.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let a = BigDecimal::parse_decimal("1.5").unwrap();
     /// let b = BigDecimal::parse_decimal("2.5").unwrap();
@@ -366,7 +366,7 @@ impl BigDecimal {
     /// See [`BigFloat::sqr`](crate::BigFloat::sqr) for why this method exists.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let x = BigDecimal::from_i64(7);
     /// let format = BigFormat::DECIMAL64;
@@ -381,7 +381,7 @@ impl BigDecimal {
     /// See [`BigFloat::sqr_status`](crate::BigFloat::sqr_status) for why this method exists.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let x = BigDecimal::from_i64(7);
     /// let (result, status) = x.sqr_status(BigFormat::DECIMAL64);
@@ -405,7 +405,7 @@ impl BigDecimal {
     /// Corresponds to `bfdec_get_int32` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::from_i64(42);
     /// assert_eq!(x.get_int32(), Some(42));
@@ -587,7 +587,7 @@ impl BigDecimal {
     /// Uses repeated squaring. Corresponds to `bfdec_pow_ui` in libbf.
     ///
     /// ```
-    /// use beef::BigDecimal;
+    /// use libbeef::BigDecimal;
     ///
     /// let x = BigDecimal::from_i64(3);
     /// let y = x.pow_u64(4);
@@ -778,7 +778,7 @@ impl BigDecimal {
     /// See [`BigFloat::sqr_assign`](crate::BigFloat::sqr_assign) for why this method exists.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let mut x = BigDecimal::from_i64(7);
     /// x.sqr_assign(BigFormat::DECIMAL64);
@@ -795,7 +795,7 @@ impl BigDecimal {
     /// See [`BigFloat::rsub_assign`](crate::BigFloat::rsub_assign) for why this method exists.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let mut x = BigDecimal::from_i64(3);
     /// let ten = BigDecimal::from_i64(10);
@@ -813,7 +813,7 @@ impl BigDecimal {
     /// See [`BigFloat::rdiv_assign`](crate::BigFloat::rdiv_assign) for why this method exists.
     ///
     /// ```
-    /// use beef::{BigDecimal, BigFormat};
+    /// use libbeef::{BigDecimal, BigFormat};
     ///
     /// let mut x = BigDecimal::from_i64(4);
     /// let twenty = BigDecimal::from_i64(20);
@@ -1899,7 +1899,7 @@ impl fmt::Display for BigDecimal {
 /// values `nan`, `inf`, `+inf`, `-inf` (case-insensitive).
 ///
 /// ```
-/// use beef::BigDecimal;
+/// use libbeef::BigDecimal;
 ///
 /// let v: BigDecimal = "3.14".parse().unwrap();
 /// assert_eq!(v.to_decimal_string().unwrap(), "3.14");
@@ -2043,9 +2043,9 @@ impl PartialEq for BigDecimal {
 /// rounding for arithmetic operations.
 ///
 /// ```
-/// use beef::decimal::Decimal;
-/// use beef::formats::Decimal64;
-/// use beef::BigDecimal;
+/// use libbeef::decimal::Decimal;
+/// use libbeef::formats::Decimal64;
+/// use libbeef::BigDecimal;
 ///
 /// let x = Decimal::<Decimal64>::from_big(BigDecimal::from_i64(10));
 /// let y = Decimal::<Decimal64>::from_big(BigDecimal::from_i64(3));
@@ -2091,8 +2091,8 @@ impl<F> Decimal<F> {
     /// Delegates to [`BigDecimal::nan`].
     ///
     /// ```
-    /// use beef::Decimal;
-    /// use beef::formats::Decimal64;
+    /// use libbeef::Decimal;
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::nan();
     /// assert!(x.as_big().is_nan());
@@ -2106,8 +2106,8 @@ impl<F> Decimal<F> {
     /// Delegates to [`BigDecimal::infinity`].
     ///
     /// ```
-    /// use beef::{Decimal, Sign};
-    /// use beef::formats::Decimal64;
+    /// use libbeef::{Decimal, Sign};
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::infinity(Sign::Positive);
     /// assert!(x.as_big().is_infinite());
@@ -2121,8 +2121,8 @@ impl<F> Decimal<F> {
     /// Delegates to [`BigDecimal::zero`].
     ///
     /// ```
-    /// use beef::{Decimal, Sign};
-    /// use beef::formats::Decimal64;
+    /// use libbeef::{Decimal, Sign};
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::zero(Sign::Negative);
     /// assert!(x.as_big().is_zero());
@@ -2136,8 +2136,8 @@ impl<F> Decimal<F> {
     /// Delegates to [`BigDecimal::from_i64`].
     ///
     /// ```
-    /// use beef::Decimal;
-    /// use beef::formats::Decimal64;
+    /// use libbeef::Decimal;
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::from_i64(42);
     /// assert_eq!(x.as_big().get_int32(), Some(42));
@@ -2154,8 +2154,8 @@ impl<F> Decimal<F> {
     /// Delegates to [`BigDecimal::from_scaled_i64`].
     ///
     /// ```
-    /// use beef::Decimal;
-    /// use beef::formats::Decimal64;
+    /// use libbeef::Decimal;
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::from_scaled_i64(314, 2);
     /// assert_eq!(x.as_big().to_decimal_string(), Some("3.14".into()));
@@ -2267,8 +2267,8 @@ impl<F: StaticFormat> Decimal<F> {
     /// See [`BigFloat::sqr`](crate::BigFloat::sqr) for why this method exists.
     ///
     /// ```
-    /// use beef::Decimal;
-    /// use beef::formats::Decimal64;
+    /// use libbeef::Decimal;
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::from_i64(7);
     /// assert_eq!(x.sqr().as_big().get_int32(), Some(49));
@@ -2282,8 +2282,8 @@ impl<F: StaticFormat> Decimal<F> {
     /// See [`BigFloat::sqr_status`](crate::BigFloat::sqr_status) for why this method exists.
     ///
     /// ```
-    /// use beef::Decimal;
-    /// use beef::formats::Decimal64;
+    /// use libbeef::Decimal;
+    /// use libbeef::formats::Decimal64;
     ///
     /// let x = Decimal::<Decimal64>::from_i64(7);
     /// let (result, status) = x.sqr_status();

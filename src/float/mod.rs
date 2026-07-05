@@ -151,11 +151,11 @@ pub enum DivRemMode {
 /// exponent, and a sequence of 64-bit limbs holding the normalized significand.
 ///
 /// ```
-/// use beef::BigFloat;
+/// use libbeef::BigFloat;
 /// let a = BigFloat::from_i64(42);
 /// let b = BigFloat::from_i64(8);
-/// let sum = a.add(&b, beef::BigFormat::BINARY64);
-/// assert_eq!(sum.to_f64(beef::Rounding::NearestEven), 50.0);
+/// let sum = a.add(&b, libbeef::BigFormat::BINARY64);
+/// assert_eq!(sum.to_f64(libbeef::Rounding::NearestEven), 50.0);
 /// ```
 #[derive(Clone)]
 pub struct BigFloat {
@@ -169,7 +169,7 @@ impl BigFloat {
     /// Corresponds to `bf_init` in libbf (which produces a zero value).
     ///
     /// ```
-    /// use beef::BigFloat;
+    /// use libbeef::BigFloat;
     /// let x = BigFloat::new();
     /// assert!(x.is_zero());
     /// ```
@@ -211,9 +211,9 @@ impl BigFloat {
     /// Corresponds to `bf_set_ui` in libbf.
     ///
     /// ```
-    /// use beef::BigFloat;
+    /// use libbeef::BigFloat;
     /// let x = BigFloat::from_u64(100);
-    /// assert_eq!(x.to_f64(beef::Rounding::NearestEven), 100.0);
+    /// assert_eq!(x.to_f64(libbeef::Rounding::NearestEven), 100.0);
     /// ```
     pub fn from_u64(value: u64) -> Self {
         if value == 0 {
@@ -231,9 +231,9 @@ impl BigFloat {
     /// Corresponds to `bf_set_si` in libbf.
     ///
     /// ```
-    /// use beef::BigFloat;
+    /// use libbeef::BigFloat;
     /// let x = BigFloat::from_i64(-7);
-    /// assert_eq!(x.to_f64(beef::Rounding::NearestEven), -7.0);
+    /// assert_eq!(x.to_f64(libbeef::Rounding::NearestEven), -7.0);
     /// ```
     pub fn from_i64(value: i64) -> Self {
         if value == 0 {
@@ -274,7 +274,7 @@ impl BigFloat {
     /// Corresponds to `bf_get_float64` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, Rounding};
+    /// use libbeef::{BigFloat, Rounding};
     /// let x = BigFloat::from_i64(42);
     /// let v = x.to_f64(Rounding::NearestEven);
     /// assert_eq!(v, 42.0);
@@ -894,10 +894,10 @@ impl BigFloat {
     /// Corresponds to `bf_add` in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
+    /// use libbeef::{BigFloat, BigFormat};
     /// let a = BigFloat::from_i64(3);
     /// let b = BigFloat::from_i64(4);
-    /// assert_eq!(a.add(&b, BigFormat::BINARY64).to_f64(beef::Rounding::NearestEven), 7.0);
+    /// assert_eq!(a.add(&b, BigFormat::BINARY64).to_f64(libbeef::Rounding::NearestEven), 7.0);
     /// ```
     pub fn add(&self, rhs: &Self, format: BigFormat) -> Self {
         self.add_status(rhs, format).0
@@ -1122,7 +1122,7 @@ impl BigFloat {
     /// Corresponds to the `bf_mul(r, r, r, …)` aliasing pattern in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     ///
     /// let mut x = BigFloat::from_f64(3.0);
     /// x.sqr_assign(BigFormat::BINARY64);
@@ -1141,7 +1141,7 @@ impl BigFloat {
     /// [`sub_assign`](Self::sub_assign), which computes `self = self - rhs`.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     ///
     /// let mut x = BigFloat::from_f64(3.0);
     /// let ten = BigFloat::from_f64(10.0);
@@ -1161,7 +1161,7 @@ impl BigFloat {
     /// `self = self / rhs`.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     ///
     /// let mut x = BigFloat::from_f64(4.0);
     /// let twenty = BigFloat::from_f64(20.0);
@@ -1219,7 +1219,7 @@ impl BigFloat {
     /// fine, but `r.mul_assign(&r, …)` is not when `r` is `a`.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     ///
     /// let x = BigFloat::from_f64(7.0);
     /// assert_eq!(x.sqr(BigFormat::BINARY64).to_f64(Rounding::NearestEven), 49.0);
@@ -1232,7 +1232,7 @@ impl BigFloat {
     /// Corresponds to the `bf_mul(r, a, a, …)` pattern in libbf.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding, Status};
+    /// use libbeef::{BigFloat, BigFormat, Rounding, Status};
     ///
     /// let x = BigFloat::from_f64(7.0);
     /// let (result, status) = x.sqr_status(BigFormat::BINARY64);
@@ -4994,12 +4994,12 @@ impl From<i128> for BigFloat {
 /// to supply rounding parameters for arithmetic operations automatically.
 ///
 /// ```
-/// use beef::formats::Binary64;
-/// use beef::Float;
-/// let a = Float::<Binary64>::from_big(beef::BigFloat::from_f64(2.5));
-/// let b = Float::<Binary64>::from_big(beef::BigFloat::from_f64(1.5));
+/// use libbeef::formats::Binary64;
+/// use libbeef::Float;
+/// let a = Float::<Binary64>::from_big(libbeef::BigFloat::from_f64(2.5));
+/// let b = Float::<Binary64>::from_big(libbeef::BigFloat::from_f64(1.5));
 /// let sum = a.add(&b);
-/// assert_eq!(sum.as_big().to_f64(beef::Rounding::NearestEven), 4.0);
+/// assert_eq!(sum.as_big().to_f64(libbeef::Rounding::NearestEven), 4.0);
 /// ```
 pub struct Float<F> {
     value: BigFloat,
@@ -5158,11 +5158,11 @@ impl<F: StaticFormat> Float<F> {
     /// See [`BigFloat::sqr`] for why this method exists.
     ///
     /// ```
-    /// use beef::Float;
-    /// use beef::formats::Binary64;
+    /// use libbeef::Float;
+    /// use libbeef::formats::Binary64;
     ///
     /// let x = Float::<Binary64>::from_f64(7.0);
-    /// assert_eq!(x.sqr().as_big().to_f64(beef::Rounding::NearestEven), 49.0);
+    /// assert_eq!(x.sqr().as_big().to_f64(libbeef::Rounding::NearestEven), 49.0);
     /// ```
     pub fn sqr(&self) -> Self {
         self.sqr_status().0
@@ -5173,12 +5173,12 @@ impl<F: StaticFormat> Float<F> {
     /// See [`BigFloat::sqr_status`] for why this method exists.
     ///
     /// ```
-    /// use beef::Float;
-    /// use beef::formats::Binary64;
+    /// use libbeef::Float;
+    /// use libbeef::formats::Binary64;
     ///
     /// let x = Float::<Binary64>::from_f64(7.0);
     /// let (result, status) = x.sqr_status();
-    /// assert_eq!(result.as_big().to_f64(beef::Rounding::NearestEven), 49.0);
+    /// assert_eq!(result.as_big().to_f64(libbeef::Rounding::NearestEven), 49.0);
     /// ```
     pub fn sqr_status(&self) -> (Self, Status) {
         let (value, status) = self.value.sqr_status(F::FORMAT);
@@ -5263,11 +5263,11 @@ impl<F: StaticFormat> Float<F> {
     /// Delegates to [`BigFloat::from_u64`] followed by rounding.
     ///
     /// ```
-    /// use beef::Float;
-    /// use beef::formats::Binary64;
+    /// use libbeef::Float;
+    /// use libbeef::formats::Binary64;
     ///
     /// let x = Float::<Binary64>::from_u64(100);
-    /// assert_eq!(x.as_big().to_f64(beef::Rounding::NearestEven), 100.0);
+    /// assert_eq!(x.as_big().to_f64(libbeef::Rounding::NearestEven), 100.0);
     /// ```
     pub fn from_u64(value: u64) -> Self {
         Self::from_big(BigFloat::from_u64(value).round(F::FORMAT))
@@ -5278,11 +5278,11 @@ impl<F: StaticFormat> Float<F> {
     /// Delegates to [`BigFloat::from_i64`] followed by rounding.
     ///
     /// ```
-    /// use beef::Float;
-    /// use beef::formats::Binary64;
+    /// use libbeef::Float;
+    /// use libbeef::formats::Binary64;
     ///
     /// let x = Float::<Binary64>::from_i64(-42);
-    /// assert_eq!(x.as_big().to_f64(beef::Rounding::NearestEven), -42.0);
+    /// assert_eq!(x.as_big().to_f64(libbeef::Rounding::NearestEven), -42.0);
     /// ```
     pub fn from_i64(value: i64) -> Self {
         Self::from_big(BigFloat::from_i64(value).round(F::FORMAT))
@@ -5295,11 +5295,11 @@ impl<F: StaticFormat> Float<F> {
     /// and NaN) before rounding to the target format.
     ///
     /// ```
-    /// use beef::Float;
-    /// use beef::formats::Binary64;
+    /// use libbeef::Float;
+    /// use libbeef::formats::Binary64;
     ///
     /// let x = Float::<Binary64>::from_f64(3.14);
-    /// assert_eq!(x.as_big().to_f64(beef::Rounding::NearestEven), 3.14);
+    /// assert_eq!(x.as_big().to_f64(libbeef::Rounding::NearestEven), 3.14);
     /// ```
     pub fn from_f64(value: f64) -> Self {
         Self::from_big(BigFloat::from_f64(value).round(F::FORMAT))
@@ -5588,7 +5588,7 @@ impl<F> Neg for Float<F> {
 /// type-safe integer operations. All arithmetic is exact (infinite precision).
 ///
 /// ```
-/// use beef::Integer;
+/// use libbeef::Integer;
 ///
 /// let a = Integer::from_i64(42);
 /// let b = Integer::from_i64(8);
@@ -5603,7 +5603,7 @@ impl Integer {
     /// Unwraps this [`Integer`] into its underlying [`BigFloat`].
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n = Integer::from_i64(7);
     /// let bf = n.into_big();
@@ -5616,7 +5616,7 @@ impl Integer {
     /// Returns a reference to the underlying [`BigFloat`].
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n = Integer::from_i64(7);
     /// assert_eq!(n.as_big().get_int64(), Some(7));
@@ -5628,7 +5628,7 @@ impl Integer {
     /// Creates the integer zero.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert!(Integer::zero().is_zero());
     /// ```
@@ -5639,7 +5639,7 @@ impl Integer {
     /// Creates an [`Integer`] from an `i64`.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n = Integer::from_i64(-99);
     /// assert_eq!(n.to_i64(), Some(-99));
@@ -5651,7 +5651,7 @@ impl Integer {
     /// Creates an [`Integer`] from a `u64`.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n = Integer::from_u64(1_000_000);
     /// assert_eq!(n.to_u64(), Some(1_000_000));
@@ -5665,7 +5665,7 @@ impl Integer {
     /// Returns `None` if `bf` is NaN, infinite, or has a fractional part.
     ///
     /// ```
-    /// use beef::{BigFloat, Integer};
+    /// use libbeef::{BigFloat, Integer};
     ///
     /// assert!(Integer::from_bigfloat(BigFloat::from_i64(5)).is_some());
     /// assert!(Integer::from_bigfloat(BigFloat::from_f64(2.5)).is_none());
@@ -5689,7 +5689,7 @@ impl Integer {
     /// Converts to `i64`, returning `None` if the value doesn't fit.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(-42).to_i64(), Some(-42));
     /// ```
@@ -5700,7 +5700,7 @@ impl Integer {
     /// Converts to `u64`, returning `None` if the value is negative or doesn't fit.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_u64(42).to_u64(), Some(42));
     /// assert_eq!(Integer::from_i64(-1).to_u64(), None);
@@ -5712,7 +5712,7 @@ impl Integer {
     /// Converts to `f64` (may lose precision for large values).
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(42).to_f64(), 42.0);
     /// ```
@@ -5723,7 +5723,7 @@ impl Integer {
     /// Returns `true` if this integer is zero.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert!(Integer::zero().is_zero());
     /// assert!(!Integer::from_i64(1).is_zero());
@@ -5735,7 +5735,7 @@ impl Integer {
     /// Returns `true` if this integer is negative.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert!(Integer::from_i64(-1).is_negative());
     /// assert!(!Integer::from_i64(1).is_negative());
@@ -5747,7 +5747,7 @@ impl Integer {
     /// Returns the sign of this integer.
     ///
     /// ```
-    /// use beef::{Integer, Sign};
+    /// use libbeef::{Integer, Sign};
     ///
     /// assert_eq!(Integer::from_i64(-5).sign(), Sign::Negative);
     /// assert_eq!(Integer::from_i64(5).sign(), Sign::Positive);
@@ -5759,7 +5759,7 @@ impl Integer {
     /// Exact addition (infinite precision).
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let sum = Integer::from_i64(100).add(&Integer::from_i64(23));
     /// assert_eq!(sum.to_i64(), Some(123));
@@ -5771,7 +5771,7 @@ impl Integer {
     /// Exact subtraction (infinite precision).
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let diff = Integer::from_i64(100).sub(&Integer::from_i64(42));
     /// assert_eq!(diff.to_i64(), Some(58));
@@ -5783,7 +5783,7 @@ impl Integer {
     /// Exact multiplication (infinite precision).
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let prod = Integer::from_i64(6).mul(&Integer::from_i64(7));
     /// assert_eq!(prod.to_i64(), Some(42));
@@ -5799,7 +5799,7 @@ impl Integer {
     /// Panics if `rhs` is zero.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let (q, r) = Integer::from_i64(17).div_rem(&Integer::from_i64(5));
     /// assert_eq!(q.to_i64(), Some(3));
@@ -5820,7 +5820,7 @@ impl Integer {
     /// Negates this integer.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(5).neg().to_i64(), Some(-5));
     /// ```
@@ -5831,7 +5831,7 @@ impl Integer {
     /// Returns the absolute value.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(-5).abs().to_i64(), Some(5));
     /// ```
@@ -5844,7 +5844,7 @@ impl Integer {
     /// See [`BigFloat::sqr`] for why this method exists.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(7).sqr().to_i64(), Some(49));
     /// assert_eq!(Integer::from_i64(-5).sqr().to_i64(), Some(25));
@@ -5856,7 +5856,7 @@ impl Integer {
     /// Exact integer exponentiation.
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// assert_eq!(Integer::from_i64(2).pow(10).to_i64(), Some(1024));
     /// assert_eq!(Integer::from_i64(3).pow(0).to_i64(), Some(1));
@@ -5877,7 +5877,7 @@ impl Integer {
     /// (which cannot happen for valid `Integer` values).
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     /// use core::cmp::Ordering;
     ///
     /// assert_eq!(Integer::from_i64(5).cmp(&Integer::from_i64(3)), Some(Ordering::Greater));
@@ -5893,7 +5893,7 @@ impl Integer {
     /// Delegates to [`BigFloat::parse_decimal_integer`].
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n = Integer::parse_decimal_integer("12345").unwrap();
     /// assert_eq!(n.to_i64(), Some(12345));
@@ -5910,7 +5910,7 @@ impl Integer {
     /// Delegates to [`BigFloat::parse_integer_radix`].
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let hex = Integer::parse_integer_radix("ff", 16).unwrap();
     /// assert_eq!(hex.to_i64(), Some(255));
@@ -6063,7 +6063,7 @@ impl core::str::FromStr for Integer {
     /// Parses a decimal integer string into an [`Integer`].
     ///
     /// ```
-    /// use beef::Integer;
+    /// use libbeef::Integer;
     ///
     /// let n: Integer = "12345".parse().unwrap();
     /// assert_eq!(n.to_i64(), Some(12345));

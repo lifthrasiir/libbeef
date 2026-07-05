@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`beef` is a Rust translation of Fabrice Bellard's `libbf` — a tiny arbitrary-precision floating-point library. The name stands for "Beeg Float". It is `no_std` compatible (requires `alloc`).
+`libbeef` is a Rust translation of Fabrice Bellard's `libbf` — a tiny arbitrary-precision floating-point library. The name stands for "Beeg Float". It is `no_std` compatible (requires `alloc`).
 
 ## Build & test commands
 

@@ -1,6 +1,6 @@
-# beef Rust Interface Design
+# libbeef Rust Interface Design
 
-`beef` is a Rust translation of Fabrice Bellard's `libbf` arbitrary precision
+`libbeef` is a Rust translation of Fabrice Bellard's `libbf` arbitrary precision
 number library. The name stands for "Beeg Float".
 
 The implementation goal is to stay faithful to `libbf`'s numeric model and
@@ -29,12 +29,12 @@ The `bfcalc.c` demo follows the same model: `BCValue` stores only `bf_t` or
 calculation environment for subsequent operations rather than mutating stored
 values.
 
-Therefore `beef` must not make operation format part of the identity or storage
+Therefore `libbeef` must not make operation format part of the identity or storage
 of the underlying numeric value.
 
 ## Two Public Layers
 
-`beef` exposes two layers.
+`libbeef` exposes two layers.
 
 1. `BigFloat` and `BigDecimal` are verbose, faithful value types. They do not
    implement arithmetic operator traits. Arithmetic methods receive a

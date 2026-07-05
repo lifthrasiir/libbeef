@@ -1,5 +1,5 @@
-use beef::format::formats;
-use beef::Float;
+use libbeef::format::formats;
+use libbeef::Float;
 
 type Quad = Float<formats::Binary128>;
 

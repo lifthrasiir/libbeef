@@ -1,13 +1,15 @@
 [package]
-name = "beef"
+name = "libbeef"
 version = "0.1.0"
+authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 edition = "2021"
 license = "MIT"
+readme = "README.md"
 description = "A Rust translation of Fabrice Bellard's libbf arbitrary precision numeric library."
-repository = ""
+repository = "https://github.com/lifthrasiir/libbeef"
 
 [lib]
-name = "beef"
+name = "libbeef"
 path = "src/lib.rs"
 
 [features]

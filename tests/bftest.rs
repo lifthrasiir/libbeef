@@ -1,4 +1,4 @@
-use beef::{
+use libbeef::{
     mp_recip, mul_log2_radix, BigDecimal, BigFloat, BigFormat, DivRemMode, Rounding, Sign, Status,
 };
 
@@ -439,7 +439,7 @@ fn bftest_to_f64_directed_rounding_modes() {
     let just_above_one = BigFloat::from_f64(1.0).add(
         &half_ulp,
         BigFormat {
-            precision: beef::Precision::Infinite,
+            precision: libbeef::Precision::Infinite,
             ..BigFormat::BINARY64
         },
     );
@@ -475,12 +475,12 @@ fn bftest_seeded_float64_add_mul_for_several_seeds() {
 #[test]
 fn bftest_faithful_mul_truncates_inputs_like_libbf() {
     let format = BigFormat {
-        precision: beef::Precision::Bits(1),
+        precision: libbeef::Precision::Bits(1),
         rounding: Rounding::Faithful,
         ..BigFormat::BINARY64
     };
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
 
@@ -510,11 +510,11 @@ fn bftest_seeded_float64_div_for_several_seeds() {
 #[test]
 fn bftest_binary_division_uses_libbf_limb_precision() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY128
     };
     let p130 = BigFormat {
-        precision: beef::Precision::Bits(130),
+        precision: libbeef::Precision::Bits(130),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
@@ -532,12 +532,12 @@ fn bftest_binary_division_uses_libbf_limb_precision() {
 #[test]
 fn bftest_binary_division_honors_decimal_digit_precision() {
     let p3 = BigFormat {
-        precision: beef::Precision::Digits(3),
+        precision: libbeef::Precision::Digits(3),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
 
@@ -553,7 +553,7 @@ fn bftest_binary_division_honors_decimal_digit_precision() {
     let expected = BigFloat::parse_decimal(
         "0.333",
         BigFormat {
-            precision: beef::Precision::Bits(20),
+            precision: libbeef::Precision::Bits(20),
             ..BigFormat::BINARY64
         },
     )
@@ -631,7 +631,7 @@ fn bftest_seeded_float64_sqrt_for_several_seeds() {
 #[test]
 fn bftest_binary_sqrt_rounds_non_square_dyadics() {
     let p4 = BigFormat {
-        precision: beef::Precision::Bits(4),
+        precision: libbeef::Precision::Bits(4),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
@@ -648,11 +648,11 @@ fn bftest_binary_sqrt_rounds_non_square_dyadics() {
 #[test]
 fn bftest_binary_sqrt_uses_libbf_limb_precision() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY128
     };
     let p130 = BigFormat {
-        precision: beef::Precision::Bits(130),
+        precision: libbeef::Precision::Bits(130),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
@@ -670,12 +670,12 @@ fn bftest_binary_sqrt_uses_libbf_limb_precision() {
 #[test]
 fn bftest_binary_sqrt_honors_decimal_digit_precision() {
     let p3 = BigFormat {
-        precision: beef::Precision::Digits(3),
+        precision: libbeef::Precision::Digits(3),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let expected_format = BigFormat {
-        precision: beef::Precision::Bits(20),
+        precision: libbeef::Precision::Bits(20),
         ..BigFormat::BINARY64
     };
 
@@ -685,7 +685,7 @@ fn bftest_binary_sqrt_honors_decimal_digit_precision() {
     assert_eq!(root, expected);
 
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     let (root, status) = BigFloat::from_i64(2).sqrt_status(exact);
@@ -696,11 +696,11 @@ fn bftest_binary_sqrt_honors_decimal_digit_precision() {
 #[test]
 fn bftest_binary_rounding_and_sqrt_do_not_stop_at_u128_mantissa() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY128
     };
     let p113 = BigFormat {
-        precision: beef::Precision::Bits(113),
+        precision: libbeef::Precision::Bits(113),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
@@ -811,7 +811,7 @@ fn bftest_transcendental_exact_identities_work_without_f64_fallback() {
 #[test]
 fn bftest_pow_integer_exponent_uses_limb_arithmetic() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY128
     };
     let base = BigFloat::parse_integer_radix("10000000000000001", 16).expect("parse large base");
@@ -934,7 +934,7 @@ fn bftest_seeded_decimal_digit_rounding_for_integer_values() {
     for (literal, precision, rounding, expected) in directed_cases {
         let value = BigFloat::parse_integer_radix(literal, 10).expect("parse integer");
         let (rounded, status) = value.round_status(BigFormat {
-            precision: beef::Precision::Digits(precision as u64),
+            precision: libbeef::Precision::Digits(precision as u64),
             rounding,
             ..BigFormat::BINARY64
         });
@@ -953,7 +953,7 @@ fn bftest_seeded_decimal_digit_rounding_for_integer_values() {
 #[test]
 fn bftest_decimal_digit_rounding_for_binary_fractions() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for (numerator, shift, precision, rounding, expected) in [
@@ -965,11 +965,11 @@ fn bftest_decimal_digit_rounding_for_binary_fractions() {
     ] {
         let value = BigFloat::from_i64(numerator).div(&BigFloat::from_i64(1_i64 << shift), exact);
         let expected_format = BigFormat {
-            precision: beef::Precision::Bits(precision * 4 + 8),
+            precision: libbeef::Precision::Bits(precision * 4 + 8),
             ..BigFormat::BINARY64
         };
         let rounded = value.round(BigFormat {
-            precision: beef::Precision::Digits(precision),
+            precision: libbeef::Precision::Digits(precision),
             rounding,
             ..BigFormat::BINARY64
         });
@@ -1075,7 +1075,7 @@ fn bftest_seeded_binary64_atof_ftoa_roundtrip_for_several_seeds() {
 #[test]
 fn bftest_binary_atof_does_not_use_f64_parser_limit() {
     let format = BigFormat {
-        precision: beef::Precision::Bits(160),
+        precision: libbeef::Precision::Bits(160),
         ..BigFormat::BINARY128
     };
     let parsed = BigFloat::parse_decimal("1e400", format).expect("parse large decimal");
@@ -1091,7 +1091,7 @@ fn bftest_binary_atof_does_not_use_f64_parser_limit() {
             )
             .expect("parse 1e50"),
             BigFormat {
-                precision: beef::Precision::Infinite,
+                precision: libbeef::Precision::Infinite,
                 ..BigFormat::BINARY128
             },
         );
@@ -1146,7 +1146,7 @@ fn bftest_decimal_rint_ties_and_faithful_rounding() {
 #[test]
 fn bftest_decimal_ops_honor_digit_precision() {
     let f = BigFormat {
-        precision: beef::Precision::Digits(4),
+        precision: libbeef::Precision::Digits(4),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1201,7 +1201,7 @@ fn bftest_decimal_ops_honor_digit_precision() {
     assert!(status.contains(Status::INEXACT));
 
     let directed = BigFormat {
-        precision: beef::Precision::Digits(3),
+        precision: libbeef::Precision::Digits(3),
         rounding: Rounding::TowardNegative,
         ..BigFormat::DECIMAL64
     };
@@ -1214,7 +1214,7 @@ fn bftest_decimal_ops_honor_digit_precision() {
 #[test]
 fn bftest_decimal_rejects_binary_precision_without_panicking() {
     let binary = BigFormat {
-        precision: beef::Precision::Bits(64),
+        precision: libbeef::Precision::Bits(64),
         ..BigFormat::BINARY64
     };
 
@@ -1231,7 +1231,7 @@ fn bftest_decimal_rejects_binary_precision_without_panicking() {
 #[test]
 fn bftest_decimal_add_mul_do_not_stop_at_i128_coefficients() {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::DECIMAL64
     };
 
@@ -1251,11 +1251,11 @@ fn bftest_decimal_add_mul_do_not_stop_at_i128_coefficients() {
 #[test]
 fn bftest_decimal_rounding_does_not_stop_at_i128_coefficients() {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::DECIMAL64
     };
     let rounded = BigFormat {
-        precision: beef::Precision::Digits(4),
+        precision: libbeef::Precision::Digits(4),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1275,7 +1275,7 @@ fn bftest_decimal_rounding_does_not_stop_at_i128_coefficients() {
 #[test]
 fn bftest_decimal_rem_divrem_do_not_stop_at_i128_coefficients() {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::DECIMAL64
     };
     let a = BigDecimal::parse_decimal(
@@ -1320,7 +1320,7 @@ fn bftest_decimal_rint_does_not_stop_at_i128_coefficients() {
 #[test]
 fn bftest_decimal_div_does_not_stop_at_i128_coefficients() {
     let f = BigFormat {
-        precision: beef::Precision::Digits(6),
+        precision: libbeef::Precision::Digits(6),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1338,7 +1338,7 @@ fn bftest_decimal_div_does_not_stop_at_i128_coefficients() {
     assert!(status.contains(Status::INEXACT));
 
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::DECIMAL64
     };
     let (half, status) = a.div_status(&BigDecimal::from_i64(2), exact);
@@ -1352,7 +1352,7 @@ fn bftest_decimal_div_does_not_stop_at_i128_coefficients() {
 #[test]
 fn bftest_decimal_sqrt_does_not_stop_at_i128_coefficients() {
     let exact = BigFormat {
-        precision: beef::Precision::Digits(80),
+        precision: libbeef::Precision::Digits(80),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1364,7 +1364,7 @@ fn bftest_decimal_sqrt_does_not_stop_at_i128_coefficients() {
     assert!(status.is_empty());
 
     let rounded = BigFormat {
-        precision: beef::Precision::Digits(8),
+        precision: libbeef::Precision::Digits(8),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1403,7 +1403,7 @@ fn bftest_seeded_decimal_integer_sqrt_for_several_seeds() {
     assert!(neg_root.is_nan());
     assert!(neg_status.contains(Status::INVALID_OP));
     let (inf_root, inf_status) = BigDecimal::from_i64(4).sqrt_status(BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..f
     });
     assert!(inf_root.is_nan());
@@ -1424,7 +1424,7 @@ fn bftest_decimal_non_square_sqrt_rounds_to_digit_precision() {
     ] {
         let value = BigDecimal::parse_decimal(literal).expect("parse decimal");
         let (root, status) = value.sqrt_status(BigFormat {
-            precision: beef::Precision::Digits(precision),
+            precision: libbeef::Precision::Digits(precision),
             rounding: Rounding::NearestEven,
             ..BigFormat::DECIMAL64
         });
@@ -1440,7 +1440,7 @@ fn bftest_decimal_non_square_sqrt_rounds_to_digit_precision() {
         (Rounding::NearestAway, "1.4142"),
     ] {
         let (root, status) = BigDecimal::from_i64(2).sqrt_status(BigFormat {
-            precision: beef::Precision::Digits(5),
+            precision: libbeef::Precision::Digits(5),
             rounding,
             ..BigFormat::DECIMAL64
         });
@@ -1812,7 +1812,7 @@ fn bf_rrandom(rng: &mut Mt19937_64, prec: u64) -> BigFloat {
     }
     let bf = BigFloat::from_raw(Sign::Positive, 0, tab);
     let fmt = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::TowardZero,
         ..BigFormat::BINARY64
     };
@@ -1879,7 +1879,7 @@ fn bftest_seeded_arbitrary_precision_sqrt_for_several_seeds() {
 #[test]
 fn bftest_pi_matches_known_digits() {
     let f = BigFormat {
-        precision: beef::Precision::Bits(256),
+        precision: libbeef::Precision::Bits(256),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1891,7 +1891,7 @@ fn bftest_pi_matches_known_digits() {
 #[test]
 fn bftest_log2_matches_known_digits() {
     let f = BigFormat {
-        precision: beef::Precision::Bits(256),
+        precision: libbeef::Precision::Bits(256),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -2044,13 +2044,13 @@ fn bftest_rrandom_decimal_fmod_divrem_rint() {
 
 #[test]
 fn bftest_parse_multi_radix_roundtrip() {
-    use beef::parse::ParseOptions;
+    use libbeef::parse::ParseOptions;
 
     for radix in [2_u8, 8, 10, 16] {
         let options = ParseOptions {
             radix,
             format: BigFormat {
-                precision: beef::Precision::Bits(53),
+                precision: libbeef::Precision::Bits(53),
                 ..BigFormat::BINARY64
             },
             allow_hex_prefix: false,
@@ -2073,7 +2073,7 @@ fn bftest_parse_multi_radix_roundtrip() {
     let hex_opts = ParseOptions {
         radix: 16,
         format: BigFormat {
-            precision: beef::Precision::Bits(53),
+            precision: libbeef::Precision::Bits(53),
             ..BigFormat::BINARY64
         },
         allow_hex_prefix: false,
@@ -2091,7 +2091,7 @@ fn bftest_parse_multi_radix_roundtrip() {
     let dec_opts = ParseOptions {
         radix: 10,
         format: BigFormat {
-            precision: beef::Precision::Bits(53),
+            precision: libbeef::Precision::Bits(53),
             ..BigFormat::BINARY64
         },
         ..ParseOptions::default()
@@ -2104,7 +2104,7 @@ fn bftest_parse_multi_radix_roundtrip() {
 
     let auto_opts = ParseOptions {
         format: BigFormat {
-            precision: beef::Precision::Bits(53),
+            precision: libbeef::Precision::Bits(53),
             ..BigFormat::BINARY64
         },
         ..ParseOptions::auto_radix()
@@ -2115,7 +2115,7 @@ fn bftest_parse_multi_radix_roundtrip() {
 
 #[test]
 fn bftest_default_parse_rejects_prefixed_literals() {
-    use beef::parse::ParseOptions;
+    use libbeef::parse::ParseOptions;
 
     let default = ParseOptions::default();
     assert!(!default.allow_hex_prefix);

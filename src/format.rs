@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 /// `exp_bits`, subnormal flag, and radix-point precision flag.
 ///
 /// ```
-/// use beef::BigFormat;
+/// use libbeef::BigFormat;
 ///
 /// let fmt = BigFormat::BINARY64;
 /// assert_eq!(fmt.subnormal, true);
@@ -206,7 +206,7 @@ const LOG2_RADIX: [u64; 35] = [
 /// Returns `None` if the radix is out of range (2..=36) or on overflow.
 ///
 /// ```
-/// use beef::mul_log2_radix;
+/// use libbeef::mul_log2_radix;
 ///
 /// // 10 decimal digits need about 34 bits
 /// let bits = mul_log2_radix(10, 10, false, true).unwrap();
@@ -275,10 +275,10 @@ pub fn mul_log2_radix(a: i64, radix: u8, is_inverse: bool, is_ceil: bool) -> Opt
 /// specify the format at compile time.
 ///
 /// ```
-/// use beef::formats::Binary64;
-/// use beef::StaticFormat;
+/// use libbeef::formats::Binary64;
+/// use libbeef::StaticFormat;
 ///
-/// assert_eq!(beef::BigFormat::BINARY64, Binary64::FORMAT);
+/// assert_eq!(libbeef::BigFormat::BINARY64, Binary64::FORMAT);
 /// ```
 pub struct Format<const PREC: u64, R, const EXP_BITS: u8, S, P>(PhantomData<(R, S, P)>);
 
@@ -420,11 +420,11 @@ where
 /// [`StaticFormat`] is required.
 ///
 /// ```
-/// use beef::formats::Binary64;
-/// use beef::StaticFormat;
+/// use libbeef::formats::Binary64;
+/// use libbeef::StaticFormat;
 ///
 /// let fmt = Binary64::FORMAT;
-/// assert_eq!(fmt, beef::BigFormat::BINARY64);
+/// assert_eq!(fmt, libbeef::BigFormat::BINARY64);
 /// ```
 pub mod formats {
     use super::{DecimalFormat, Format, NearestEven, NoRadixPointPrec, Subnormal};

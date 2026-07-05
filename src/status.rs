@@ -7,7 +7,7 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 /// Flags can be combined with `|` and tested with [`contains`](Status::contains).
 ///
 /// ```
-/// use beef::Status;
+/// use libbeef::Status;
 ///
 /// let s = Status::INEXACT | Status::OVERFLOW;
 /// assert!(!s.is_empty());

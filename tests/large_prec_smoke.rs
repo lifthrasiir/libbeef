@@ -1,12 +1,12 @@
 // Smoke test: core ops stay consistent at very large precisions
 // (div @3000+ was once dropped from the bench suite due to a bug; keep it covered).
-use beef::{BigFloat, BigFormat, Precision, Rounding};
+use libbeef::{BigFloat, BigFormat, Precision, Rounding};
 
 fn fmt(bits: u64) -> BigFormat {
     BigFormat {
         precision: Precision::Bits(bits),
         rounding: Rounding::NearestEven,
-        exp_bits: beef::format::ExpBits::Max,
+        exp_bits: libbeef::format::ExpBits::Max,
         ..BigFormat::BINARY64
     }
 }

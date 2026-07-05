@@ -524,17 +524,17 @@ impl BigFloat {
     /// The exponent value itself is always written in decimal.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat};
-    /// use beef::parse::ParseOptions;
+    /// use libbeef::{BigFloat, BigFormat};
+    /// use libbeef::parse::ParseOptions;
     ///
     /// let opts = ParseOptions::default();
     /// let (val, _consumed) = BigFloat::parse("3.14", opts).unwrap();
-    /// let f = val.to_f64(beef::Rounding::NearestEven);
+    /// let f = val.to_f64(libbeef::Rounding::NearestEven);
     /// assert!((f - 3.14).abs() < 1e-10);
     ///
     /// let hex_opts = ParseOptions { allow_hex_prefix: true, ..ParseOptions::default() };
     /// let (val, _consumed) = BigFloat::parse("0xff", hex_opts).unwrap();
-    /// let f = val.to_f64(beef::Rounding::NearestEven);
+    /// let f = val.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 255.0);
     /// ```
     pub fn parse(input: &str, options: ParseOptions) -> Result<(Self, usize), ParseFloatError> {
@@ -573,13 +573,13 @@ impl BigFloat {
     /// (e.g. `1.8p4` in base 16 means 1.5 × 2⁴ = 24).
     ///
     /// ```
-    /// use beef::BigFloat;
+    /// use libbeef::BigFloat;
     ///
     /// let v = BigFloat::from_str_radix("ff", 16).unwrap();
-    /// assert_eq!(v.to_f64(beef::Rounding::NearestEven), 255.0);
+    /// assert_eq!(v.to_f64(libbeef::Rounding::NearestEven), 255.0);
     ///
     /// let v = BigFloat::from_str_radix("-1.8@1", 16).unwrap();
-    /// assert_eq!(v.to_f64(beef::Rounding::NearestEven), -24.0);
+    /// assert_eq!(v.to_f64(libbeef::Rounding::NearestEven), -24.0);
     /// ```
     pub fn from_str_radix(input: &str, radix: u8) -> Result<Self, ParseFloatError> {
         if !(2..=36).contains(&radix) {
@@ -615,7 +615,7 @@ impl BigFloat {
     /// non-power-of-2 radices. Returns `None` if the radix is out of range.
     ///
     /// ```
-    /// use beef::{BigFloat, BigFormat, Rounding};
+    /// use libbeef::{BigFloat, BigFormat, Rounding};
     ///
     /// let val = BigFloat::from_f64(255.0);
     /// let s = val.to_string_radix(10, 1, Rounding::NearestEven, true).unwrap();
@@ -646,10 +646,10 @@ impl BigFloat {
 /// `inf`, and `Infinity` (case-insensitive).
 ///
 /// ```
-/// use beef::BigFloat;
+/// use libbeef::BigFloat;
 ///
 /// let v: BigFloat = "3.14".parse().unwrap();
-/// assert!((v.to_f64(beef::Rounding::NearestEven) - 3.14).abs() < 1e-10);
+/// assert!((v.to_f64(libbeef::Rounding::NearestEven) - 3.14).abs() < 1e-10);
 ///
 /// let v: BigFloat = "-inf".parse().unwrap();
 /// assert!(v.is_infinite());

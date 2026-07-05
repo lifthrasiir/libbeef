@@ -1,4 +1,4 @@
-use beef::{
+use libbeef::{
     mp_recip, mp_sqrtrem, mul_log2_radix, BigDecimal, BigFloat, BigFormat, DivRemMode, Rounding,
     Status,
 };
@@ -74,7 +74,7 @@ pub fn run_mp_recip(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 
 pub fn run_small_integer_ops(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -99,7 +99,7 @@ pub fn run_small_integer_ops(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 
 pub fn run_exact_dyadic_division(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -120,7 +120,7 @@ pub fn run_exact_dyadic_division(rng: &mut Mt19937_64, count: usize, _prec: u64)
 
 pub fn run_large_integer_limb_ops(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -213,7 +213,7 @@ pub fn run_float64_fmod(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 
 pub fn run_remainder_nearest_even(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let exact = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -234,7 +234,7 @@ pub fn run_remainder_nearest_even(rng: &mut Mt19937_64, count: usize, _prec: u64
 
 pub fn run_remainder_floor_euclidean(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -308,7 +308,7 @@ pub fn run_float64_sqrt(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 pub fn run_float64_transcendentals(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat::BINARY64;
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(200),
+        precision: libbeef::Precision::Bits(200),
         ..BigFormat::BINARY64
     };
     for iter in 0..count {
@@ -453,7 +453,7 @@ pub fn run_decimal_digit_rounding(rng: &mut Mt19937_64, count: usize, _prec: u64
         let (expected, inexact) = expected_decimal_digit_round(&input, precision, rounding);
         let value = BigFloat::parse_integer_radix(&input, 10).expect("parse integer");
         let (rounded, status) = value.round_status(BigFormat {
-            precision: beef::Precision::Digits(precision as u64),
+            precision: libbeef::Precision::Digits(precision as u64),
             rounding,
             ..BigFormat::BINARY64
         });
@@ -609,7 +609,7 @@ pub fn run_decimal_scaled_ops(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 
 pub fn run_decimal_tiny_division(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(4),
+        precision: libbeef::Precision::Digits(4),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -739,7 +739,7 @@ pub fn run_decimal_non_square_sqrt(rng: &mut Mt19937_64, count: usize, _prec: u6
             value += 1;
         }
         let (root, status) = BigDecimal::from_i64(value).sqrt_status(BigFormat {
-            precision: beef::Precision::Digits(8),
+            precision: libbeef::Precision::Digits(8),
             rounding: Rounding::NearestEven,
             ..BigFormat::DECIMAL64
         });
@@ -756,12 +756,12 @@ pub fn run_decimal_non_square_sqrt(rng: &mut Mt19937_64, count: usize, _prec: u6
         );
 
         let (down, down_status) = BigDecimal::from_i64(value).sqrt_status(BigFormat {
-            precision: beef::Precision::Digits(8),
+            precision: libbeef::Precision::Digits(8),
             rounding: Rounding::TowardZero,
             ..BigFormat::DECIMAL64
         });
         let (up, up_status) = BigDecimal::from_i64(value).sqrt_status(BigFormat {
-            precision: beef::Precision::Digits(8),
+            precision: libbeef::Precision::Digits(8),
             rounding: Rounding::TowardPositive,
             ..BigFormat::DECIMAL64
         });
@@ -804,7 +804,7 @@ pub fn run_integer_rounding(rng: &mut Mt19937_64, count: usize, _prec: u64) {
             Rounding::TowardNegative,
         ] {
             let format = BigFormat {
-                precision: beef::Precision::Bits(precision),
+                precision: libbeef::Precision::Bits(precision),
                 rounding,
                 ..BigFormat::BINARY64
             };
@@ -858,7 +858,7 @@ pub fn run_can_round_property(rng: &mut Mt19937_64, count: usize, _prec: u64) {
         }
 
         let format = BigFormat {
-            precision: beef::Precision::Bits(precision),
+            precision: libbeef::Precision::Bits(precision),
             rounding,
             ..BigFormat::BINARY64
         };
@@ -872,7 +872,7 @@ pub fn run_can_round_property(rng: &mut Mt19937_64, count: usize, _prec: u64) {
             let changed = a.add(
                 &c,
                 BigFormat {
-                    precision: beef::Precision::Infinite,
+                    precision: libbeef::Precision::Infinite,
                     ..BigFormat::BINARY64
                 },
             );
@@ -944,7 +944,7 @@ pub fn run_atof_roundtrip_multi_radix(rng: &mut Mt19937_64, count: usize, _prec:
 
 pub fn run_decimal_pow_u64(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::DECIMAL64
     };
     for _ in 0..count {
@@ -963,7 +963,7 @@ pub fn run_decimal_pow_u64(rng: &mut Mt19937_64, count: usize, _prec: u64) {
 
 pub fn run_div_rem_and_rem_quo_match(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Infinite,
+        precision: libbeef::Precision::Infinite,
         ..BigFormat::BINARY64
     };
     for _ in 0..count {
@@ -1022,12 +1022,12 @@ pub fn run_decimal_to_from_bigfloat(rng: &mut Mt19937_64, count: usize, _prec: u
 
 pub fn run_higher_precision_transcendentals(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(200),
+        precision: libbeef::Precision::Bits(200),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY128
     };
@@ -1057,12 +1057,12 @@ pub fn run_higher_precision_transcendentals(rng: &mut Mt19937_64, count: usize, 
 
 pub fn run_arbitrary_precision_add(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1094,12 +1094,12 @@ pub fn run_arbitrary_precision_add(rng: &mut Mt19937_64, count: usize, prec: u64
 
 pub fn run_arbitrary_precision_mul(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1131,12 +1131,12 @@ pub fn run_arbitrary_precision_mul(rng: &mut Mt19937_64, count: usize, prec: u64
 
 pub fn run_arbitrary_precision_div(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1168,12 +1168,12 @@ pub fn run_arbitrary_precision_div(rng: &mut Mt19937_64, count: usize, prec: u64
 
 pub fn run_arbitrary_precision_sqrt(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1202,12 +1202,12 @@ pub fn run_arbitrary_precision_sqrt(rng: &mut Mt19937_64, count: usize, prec: u6
 
 pub fn run_rrandom_add_sub(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1244,12 +1244,12 @@ pub fn run_rrandom_add_sub(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_mul(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1275,12 +1275,12 @@ pub fn run_rrandom_mul(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_div(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1306,12 +1306,12 @@ pub fn run_rrandom_div(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_sqrt(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1374,12 +1374,12 @@ pub fn run_rrandom_rint(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_round(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1445,12 +1445,12 @@ pub fn run_rrandom_logic(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_fmod(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1476,12 +1476,12 @@ pub fn run_rrandom_fmod(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_rem(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1526,7 +1526,7 @@ pub fn run_rrandom_can_round(rng: &mut Mt19937_64, count: usize, prec: u64) {
         }
 
         let format = BigFormat {
-            precision: beef::Precision::Bits(prec),
+            precision: libbeef::Precision::Bits(prec),
             rounding,
             ..BigFormat::BINARY64
         };
@@ -1544,7 +1544,7 @@ pub fn run_rrandom_can_round(rng: &mut Mt19937_64, count: usize, prec: u64) {
             let b = a.add(
                 &c,
                 BigFormat {
-                    precision: beef::Precision::Infinite,
+                    precision: libbeef::Precision::Infinite,
                     ..BigFormat::BINARY64
                 },
             );
@@ -1560,12 +1560,12 @@ pub fn run_rrandom_can_round(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_decimal_ops(rng: &mut Mt19937_64, count: usize, _prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(16),
+        precision: libbeef::Precision::Digits(16),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Digits(32),
+        precision: libbeef::Precision::Digits(32),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -1676,12 +1676,12 @@ pub fn run_rrandom_decimal_fmod_divrem_rint(rng: &mut Mt19937_64, count: usize, 
 
 pub fn run_rrandom_exp_log(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1727,12 +1727,12 @@ pub fn run_rrandom_exp_log(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_sincos(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1772,12 +1772,12 @@ pub fn run_rrandom_sincos(rng: &mut Mt19937_64, count: usize, prec: u64) {
 
 pub fn run_rrandom_atan_asin_acos(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -1823,12 +1823,12 @@ pub fn run_rrandom_atan_asin_acos(rng: &mut Mt19937_64, count: usize, prec: u64)
 
 pub fn run_rrandom_atan2_pow(rng: &mut Mt19937_64, count: usize, prec: u64) {
     let f = BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
     let f_hi = BigFormat {
-        precision: beef::Precision::Bits(prec * 2 + 64),
+        precision: libbeef::Precision::Bits(prec * 2 + 64),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     };
@@ -2337,7 +2337,7 @@ struct BenchSpec {
 
 fn make_format(prec: u64) -> BigFormat {
     BigFormat {
-        precision: beef::Precision::Bits(prec),
+        precision: libbeef::Precision::Bits(prec),
         rounding: Rounding::NearestEven,
         ..BigFormat::BINARY64
     }
@@ -2395,7 +2395,7 @@ macro_rules! bench_binary {
             let inputs: Vec<(BigFloat, BigFloat)> = (0..bench_n(prec))
                 .map(|_| (gen_fn(rng, prec), gen_fn(rng, prec)))
                 .collect();
-            let set_fn: fn(&mut BigFloat, &BigFloat, &BigFloat, BigFormat) -> beef::Status = $op;
+            let set_fn: fn(&mut BigFloat, &BigFloat, &BigFloat, BigFormat) -> libbeef::Status = $op;
             let deadline =
                 std::time::Instant::now() + std::time::Duration::from_millis(duration_ms);
             let mut total = 0_usize;
@@ -2452,13 +2452,13 @@ fn gen_rrandom_int(rng: &mut Mt19937_64, prec: u64) -> BigFloat {
     bf_rrandom_int(rng, prec)
 }
 
-fn bf_set_add(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> beef::Status {
+fn bf_set_add(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> libbeef::Status {
     r.set_add(a, b, f)
 }
-fn bf_set_sub(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> beef::Status {
+fn bf_set_sub(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> libbeef::Status {
     r.set_sub(a, b, f)
 }
-fn bf_set_mul(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> beef::Status {
+fn bf_set_mul(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> libbeef::Status {
     r.set_mul(a, b, f)
 }
 fn bf_round(a: &BigFloat, f: BigFormat) -> BigFloat {
@@ -2488,12 +2488,12 @@ fn bf_asin_bench(a: &BigFloat, f: BigFormat) -> BigFloat {
 fn bf_acos_bench(a: &BigFloat, f: BigFormat) -> BigFloat {
     a.acos(f)
 }
-fn bf_set_atan2(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> beef::Status {
+fn bf_set_atan2(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> libbeef::Status {
     let (result, status) = a.atan2_status(b, f);
     *r = result;
     status
 }
-fn bf_set_pow(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> beef::Status {
+fn bf_set_pow(r: &mut BigFloat, a: &BigFloat, b: &BigFloat, f: BigFormat) -> libbeef::Status {
     let (result, status) = a.pow_status(b, f);
     *r = result;
     status
@@ -2695,7 +2695,7 @@ fn bench_logic(rng: &mut Mt19937_64, prec: u64, duration_ms: u64) -> (usize, u12
 
 fn bench_dec_add(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, u128) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(16),
+        precision: libbeef::Precision::Digits(16),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -2726,7 +2726,7 @@ fn bench_dec_add(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, 
 
 fn bench_dec_mul(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, u128) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(16),
+        precision: libbeef::Precision::Digits(16),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -2757,7 +2757,7 @@ fn bench_dec_mul(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, 
 
 fn bench_dec_div(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, u128) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(16),
+        precision: libbeef::Precision::Digits(16),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -2792,7 +2792,7 @@ fn bench_dec_div(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, 
 
 fn bench_dec_sqrt(rng: &mut Mt19937_64, _prec: u64, duration_ms: u64) -> (usize, u128) {
     let f = BigFormat {
-        precision: beef::Precision::Digits(16),
+        precision: libbeef::Precision::Digits(16),
         rounding: Rounding::NearestEven,
         ..BigFormat::DECIMAL64
     };
@@ -2993,7 +2993,7 @@ pub fn bftest_bench() {
 
     eprint!(
         "{:<20} {:>5} {:>5} {:>8} {:>10}",
-        "OP", "PREC", "SEED", "CNT", "beef"
+        "OP", "PREC", "SEED", "CNT", "libbeef"
     );
     #[cfg(feature = "vs_num_bigint")]
     eprint!(" {:>10}", "num-bigint");
