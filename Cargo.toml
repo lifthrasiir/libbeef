@@ -26,3 +26,18 @@ num-bigint = { version = "0.4", optional = true }
 rug = { version = "1", optional = true }
 malachite-nz = { version = "0.4", optional = true }
 
+[[example]]
+name = "sin_product"
+
+[[example]]
+name = "sin_product_rug"
+required-features = ["vs_rug"]
+
+[[example]]
+name = "sin_product_malachite"
+required-features = ["vs_malachite"]
+
+[[example]]
+name = "sin_product_num_bigint"
+required-features = ["vs_num_bigint"]
+

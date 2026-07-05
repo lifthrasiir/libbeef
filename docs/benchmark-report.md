@@ -9,7 +9,7 @@
 | CPU / RAM | Apple M4, 32 GiB |
 | OS | macOS 26.5 |
 | Rust | rustc 1.96.1, `--release` |
-| beef | this repository (post-optimization) |
+| beef | this repository (commit `a15c3743f262931a8a1f87fc1260529815afabe5`) |
 | libbf (C) | version 2025-06-03, prebuilt `bftest` at `../libbf`, clang `-O2` |
 | rug | 1.30.0 (gmp-mpfr-sys 1.7.1 → GMP 6.3 / MPFR 4.2) |
 | num-bigint | 0.4.7 |
