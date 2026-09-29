@@ -102,6 +102,9 @@ const BFTEST_OPS: &[(BfTestOp, &str)] = &[
     (BfTestOp::RintDec, "rint_dec"),
 ];
 
+/// Signature of a per-op benchmark runner.
+type BenchFn = fn(&mut Mt19937_64, u64, u64) -> (usize, u128);
+
 struct Mt19937_64 {
     mt: [u64; 312],
     mti: usize,

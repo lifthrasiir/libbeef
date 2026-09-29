@@ -2332,7 +2332,7 @@ pub fn bftest_continuous() {
 struct BenchSpec {
     name: &'static str,
     precisions: &'static [u64],
-    run: fn(&mut Mt19937_64, u64, u64) -> (usize, u128),
+    run: super::BenchFn,
 }
 
 fn make_format(prec: u64) -> BigFormat {

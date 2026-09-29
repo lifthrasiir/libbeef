@@ -20,7 +20,7 @@ fn bench_n(prec: u64) -> usize {
 
 fn gen_random_float(rng: &mut Mt19937_64, prec: u64) -> Float {
     let p = prec.max(53) as u32;
-    let n_limbs = (p as usize + 63) / 64;
+    let n_limbs = (p as usize).div_ceil(64);
     let mut int = rug::Integer::from(rng.next_u64());
     for _ in 1..n_limbs {
         int <<= 64u32;
@@ -196,7 +196,7 @@ fn bench_cmp(rng: &mut Mt19937_64, prec: u64, duration_ms: u64) -> (usize, u128)
     (total, accum_ns)
 }
 
-pub fn bench_lookup(name: &str) -> Option<fn(&mut Mt19937_64, u64, u64) -> (usize, u128)> {
+pub fn bench_lookup(name: &str) -> Option<super::BenchFn> {
     match name {
         "add" => Some(bench_add),
         "sub" => Some(bench_sub),

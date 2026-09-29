@@ -141,7 +141,8 @@ fn to_string_radix_no_double_dot() {
     // Also test other non-power-of-2 radices
     for radix in [3_u8, 5, 6, 7, 9, 10, 12] {
         for n_digits in 1..=6_u64 {
-            if let Some(s) = val.to_string_radix(radix, n_digits, libbeef::Rounding::NearestEven, true)
+            if let Some(s) =
+                val.to_string_radix(radix, n_digits, libbeef::Rounding::NearestEven, true)
             {
                 assert!(
                     !s.contains(".."),

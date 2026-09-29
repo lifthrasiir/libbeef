@@ -18,7 +18,7 @@ fn bench_n(prec: u64) -> usize {
 
 fn gen_random_bigint(rng: &mut Mt19937_64, bits: u64) -> BigInt {
     let bits = bits.max(64);
-    let n_hex = ((bits + 3) / 4) as usize;
+    let n_hex = bits.div_ceil(4) as usize;
     let mut hex = String::with_capacity(n_hex);
     hex.push(super::digit_char(1 + (rng.next_u64() % 15) as u8));
     for _ in 1..n_hex {
@@ -136,7 +136,7 @@ fn bench_logic(rng: &mut Mt19937_64, prec: u64, duration_ms: u64) -> (usize, u12
     (total, accum_ns)
 }
 
-pub fn bench_lookup(name: &str) -> Option<fn(&mut Mt19937_64, u64, u64) -> (usize, u128)> {
+pub fn bench_lookup(name: &str) -> Option<super::BenchFn> {
     match name {
         "mul" => Some(bench_mul),
         "add" => Some(bench_add),

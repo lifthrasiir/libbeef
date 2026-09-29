@@ -19,7 +19,7 @@ fn bench_n(prec: u64) -> usize {
 
 fn gen_random_natural(rng: &mut Mt19937_64, bits: u64) -> Natural {
     let bits = bits.max(64);
-    let n_limbs = ((bits + 63) / 64) as usize;
+    let n_limbs = bits.div_ceil(64) as usize;
     let mut limbs: Vec<u64> = (0..n_limbs).map(|_| rng.next_u64()).collect();
     let bits_in_last = ((bits - 1) % 64) + 1;
     if let Some(last) = limbs.last_mut() {
@@ -141,7 +141,7 @@ fn bench_cmp(rng: &mut Mt19937_64, prec: u64, duration_ms: u64) -> (usize, u128)
     (total, accum_ns)
 }
 
-pub fn bench_lookup(name: &str) -> Option<fn(&mut Mt19937_64, u64, u64) -> (usize, u128)> {
+pub fn bench_lookup(name: &str) -> Option<super::BenchFn> {
     match name {
         "mul" => Some(bench_mul),
         "add" => Some(bench_add),
