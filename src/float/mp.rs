@@ -233,16 +233,15 @@ pub(crate) fn mp_divnorm(tabq: &mut [u64], taba: &mut [u64], na: usize, tabb: &[
     }
 
     for i in (0..n).rev() {
-        let q_val;
-        if taba[i + nb] >= b1 {
-            q_val = u64::MAX;
+        let q_val = if taba[i + nb] >= b1 {
+            u64::MAX
         } else if b1_inv != 0 {
             let mut dummy_r = 0_u64;
-            q_val = udiv1norm(&mut dummy_r, taba[i + nb], taba[i + nb - 1], b1, b1_inv);
+            udiv1norm(&mut dummy_r, taba[i + nb], taba[i + nb - 1], b1, b1_inv)
         } else {
             let al = (u128::from(taba[i + nb]) << 64) | u128::from(taba[i + nb - 1]);
-            q_val = (al / u128::from(b1)) as u64;
-        }
+            (al / u128::from(b1)) as u64
+        };
 
         let r = mp_sub_mul1(&mut taba[i..], tabb, nb, q_val);
         let v = taba[i + nb];

@@ -4094,9 +4094,7 @@ pub(crate) fn div_rem_abs_limbs_owned(mut a: Vec<u64>, b: &[u64]) -> (Vec<u64>, 
     a.push(0);
     let taba = &mut a;
     let mut b_shifted_storage;
-    let tabb: &[u64];
-
-    if shift != 0 {
+    let tabb: &[u64] = if shift != 0 {
         let mut carry = 0_u64;
         for item in taba[..na].iter_mut() {
             let v = *item;
@@ -4112,10 +4110,10 @@ pub(crate) fn div_rem_abs_limbs_owned(mut a: Vec<u64>, b: &[u64]) -> (Vec<u64>, 
             *item = (v << shift) | carry;
             carry = v >> (64 - shift);
         }
-        tabb = &b_shifted_storage;
+        &b_shifted_storage
     } else {
-        tabb = b_trimmed;
-    }
+        b_trimmed
+    };
 
     let actual_na = if taba[na] != 0 { na + 1 } else { na };
     let nq = actual_na - nb;
