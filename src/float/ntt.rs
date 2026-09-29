@@ -1,6 +1,5 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use core::cell::RefCell;
 
 use super::{mp_mul_basecase_abs, trim_limbs};
 
@@ -727,14 +726,15 @@ fn fft_mul(
     result
 }
 
-thread_local! {
-    static NTT_STATE: RefCell<Option<BFNTTState>> = const { RefCell::new(None) };
-}
-
+#[cfg(feature = "std")]
 fn with_ntt_state<F, R>(f: F) -> R
 where
     F: FnOnce(&mut BFNTTState) -> R,
 {
+    use std::cell::RefCell;
+    thread_local! {
+        static NTT_STATE: RefCell<Option<BFNTTState>> = const { RefCell::new(None) };
+    }
     NTT_STATE.with(|cell| {
         let mut borrow = cell.borrow_mut();
         if borrow.is_none() {
@@ -742,6 +742,14 @@ where
         }
         f(borrow.as_mut().unwrap())
     })
+}
+
+#[cfg(not(feature = "std"))]
+fn with_ntt_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut BFNTTState) -> R,
+{
+    f(&mut BFNTTState::new())
 }
 
 pub(crate) fn mp_mul(op1: &[u64], op1_size: usize, op2: &[u64], op2_size: usize) -> Vec<u64> {

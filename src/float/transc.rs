@@ -3,11 +3,13 @@ use crate::status::Status;
 
 use super::{BigFloat, DivRemMode, Sign};
 
+#[cfg(feature = "std")]
 struct ConstCache {
     prec: u64,
     val: BigFloat,
 }
 
+#[cfg(feature = "std")]
 impl ConstCache {
     const fn new() -> Self {
         Self {
@@ -17,6 +19,7 @@ impl ConstCache {
     }
 }
 
+#[cfg(feature = "std")]
 fn cached_const(cache: &mut ConstCache, prec: u64, compute: fn(u64) -> BigFloat) -> BigFloat {
     if cache.prec < prec {
         cache.val = compute(prec);
@@ -57,14 +60,16 @@ fn isqrt(a: u64) -> u64 {
     if a == 0 {
         return 0;
     }
-    let mut s = (a as f64).sqrt() as u64;
-    while s * s > a {
-        s -= 1;
+    // Newton's iteration from an initial overestimate; avoids `f64::sqrt`,
+    // which is unavailable in `no_std`.
+    let mut s = 1u64 << (64 - a.leading_zeros()).div_ceil(2);
+    loop {
+        let t = (s + a / s) / 2;
+        if t >= s {
+            return s;
+        }
+        s = t;
     }
-    while (s + 1) * (s + 1) <= a {
-        s += 1;
-    }
-    s
 }
 
 impl BigFloat {
@@ -1103,7 +1108,13 @@ fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
         let log2 = cached_log2(64);
         let q = a.div(&log2, fmt_bits(64));
         let f = q.to_f64(Rounding::TowardNegative);
-        f.floor() as i64
+        // `f64::floor` is unavailable in `no_std`.
+        let n = f as i64;
+        if (n as f64) > f {
+            n.saturating_sub(1)
+        } else {
+            n
+        }
     };
 
     let k = isqrt(prec.div_ceil(2));

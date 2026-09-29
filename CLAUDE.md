@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 cargo build                    # build (default features: std)
+cargo build --no-default-features  # verify no_std still builds (also try a bare-metal
+                                   # target, e.g. --target thumbv7em-none-eabihf)
 cargo test                     # run all tests
 cargo test --test api_surface  # run only the API-surface tests
 cargo test --test bftest       # run the libbf-ported test suite (quick, single-seed)

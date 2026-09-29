@@ -981,7 +981,7 @@ impl BigFloat {
 
     /// In-place multiplication. Returns the status flags.
     pub fn mul_assign(&mut self, rhs: &Self, format: BigFormat) -> Status {
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         self.set_mul(&a, rhs, format)
     }
 
@@ -999,7 +999,7 @@ impl BigFloat {
         }
         // Swap the value out instead of cloning it (C's aliased bf_add also
         // computes into a fresh buffer, but never copies the input).
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         bf_add_internal_into(self, &a, rhs, format, false)
     }
 
@@ -1015,13 +1015,13 @@ impl BigFloat {
             self.limbs.extend_from_slice(&rhs.limbs);
             return self.normalize_and_round_mut(format);
         }
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         bf_add_internal_into(self, &a, rhs, format, true)
     }
 
     /// In-place division. Returns the status flags.
     pub fn div_assign(&mut self, rhs: &Self, format: BigFormat) -> Status {
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         self.set_div(&a, rhs, format)
     }
 
@@ -1129,7 +1129,7 @@ impl BigFloat {
     /// assert_eq!(x.to_f64(Rounding::NearestEven), 9.0);
     /// ```
     pub fn sqr_assign(&mut self, format: BigFormat) -> Status {
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         self.set_mul(&a, &a, format)
     }
 
@@ -1149,7 +1149,7 @@ impl BigFloat {
     /// assert_eq!(x.to_f64(Rounding::NearestEven), 7.0);
     /// ```
     pub fn rsub_assign(&mut self, lhs: &Self, format: BigFormat) -> Status {
-        let b = std::mem::take(self);
+        let b = core::mem::take(self);
         self.set_sub(lhs, &b, format)
     }
 
@@ -1169,13 +1169,13 @@ impl BigFloat {
     /// assert_eq!(x.to_f64(Rounding::NearestEven), 5.0);
     /// ```
     pub fn rdiv_assign(&mut self, dividend: &Self, format: BigFormat) -> Status {
-        let b = std::mem::take(self);
+        let b = core::mem::take(self);
         self.set_div(dividend, &b, format)
     }
 
     /// In-place square root. Returns the status flags.
     pub fn sqrt_assign(&mut self, format: BigFormat) -> Status {
-        let a = std::mem::take(self);
+        let a = core::mem::take(self);
         self.set_sqrt(&a, format)
     }
 
