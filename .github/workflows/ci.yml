@@ -28,12 +28,15 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all --check
 
+  # Pinned so that new lints in a stable release do not break CI unannounced;
+  # bump deliberately (and fix the new lints) from time to time.
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.98.1
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets
