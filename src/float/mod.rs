@@ -2069,7 +2069,8 @@ impl BigFloat {
                 let mask = u64::MAX << (64 - mask_bits);
                 limbs[0] = mask;
             }
-            let result = Self::from_abs_int_limbs_scaled(limbs, sign, e_max - prec as i64);
+            // The limbs hold 0.11...1 (prec ones) as a 64*l-bit integer.
+            let result = Self::from_abs_int_limbs_scaled(limbs, sign, e_max - 64 * l as i64);
             (result, Status::OVERFLOW | Status::INEXACT)
         }
     }

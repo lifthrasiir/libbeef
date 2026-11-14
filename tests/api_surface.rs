@@ -262,3 +262,33 @@ fn to_string_radix_large_digit_counts() {
         "10000000000000000000000000000000000000000000000000000"
     );
 }
+
+#[test]
+fn overflow_to_max_finite_under_directed_rounding() {
+    use libbeef::{BigFormat, Rounding};
+    let two = BigFloat::from_i64(2);
+    for rounding in [Rounding::TowardZero, Rounding::TowardNegative] {
+        let f = BigFormat {
+            rounding,
+            ..BigFormat::BINARY64
+        };
+        let (r, st) = BigFloat::from_f64(f64::MAX).mul_status(&two, f);
+        assert_eq!(st, libbeef::Status::OVERFLOW | libbeef::Status::INEXACT);
+        assert_eq!(r.to_f64(Rounding::NearestEven), f64::MAX, "{rounding:?}");
+    }
+    let f = BigFormat {
+        rounding: Rounding::TowardPositive,
+        ..BigFormat::BINARY64
+    };
+    let r = BigFloat::from_f64(-f64::MAX).mul(&two, f);
+    assert_eq!(r.to_f64(Rounding::NearestEven), -f64::MAX);
+
+    // binary128: the largest finite value is (2 - 2^-112) * 2^16383.
+    let f = BigFormat {
+        rounding: Rounding::TowardZero,
+        ..BigFormat::BINARY128
+    };
+    let r = BigFloat::from_f64(f64::MAX).mul_exp2(20000).round(f);
+    assert_eq!(r.raw_exp(), 16384);
+    assert_eq!(r.limbs(), &[0xffff_ffff_ffff_8000, u64::MAX]);
+}
