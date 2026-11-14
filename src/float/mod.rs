@@ -16,6 +16,7 @@ use core::ops::{
 use crate::format::Precision;
 use crate::format::BF_PREC_INF;
 use crate::format::{BigFormat, Rounding, StaticFormat};
+use crate::ftoa::{FormatStyle, ToStringOptions};
 use crate::parse::{ParseFloatError, ParseOptions};
 use crate::status::Status;
 
@@ -4755,34 +4756,77 @@ impl fmt::UpperHex for BigFloat {
     }
 }
 
+/// Shared implementation of `{:e}` and `{:E}`.
+///
+/// Without a precision the shortest decimal representation that reads back as
+/// the same value is printed (at the precision of the value, but at least 53
+/// bits, so that `f64` values print like Rust's own `f64` formatting). With a
+/// precision `p`, the value is rounded to nearest-even and printed with `p`
+/// digits after the decimal point. NaN and infinities are printed as `NaN` and
+/// `Inf`. Width, fill, alignment and the `+` and `0` flags are honoured.
+fn fmt_exp(value: &BigFloat, f: &mut fmt::Formatter<'_>, upper: bool) -> fmt::Result {
+    if !value.is_finite() {
+        let s = if value.is_nan() {
+            "NaN"
+        } else if value.sign.is_negative() {
+            "-Inf"
+        } else {
+            "Inf"
+        };
+        return f.pad(s);
+    }
+    let options = match f.precision() {
+        Some(p) => ToStringOptions {
+            precision: (p as u64).saturating_add(1),
+            style: FormatStyle::Fixed,
+            force_exponent: true,
+            ..ToStringOptions::default()
+        },
+        None => {
+            let low_zeros: usize = value
+                .limbs
+                .iter()
+                .position(|&l| l != 0)
+                .map_or(0, |i| i * 64 + value.limbs[i].trailing_zeros() as usize);
+            let bits = (value.limbs.len() * 64 - low_zeros) as u64;
+            ToStringOptions {
+                precision: bits.max(53),
+                force_exponent: true,
+                ..ToStringOptions::default()
+            }
+        }
+    };
+    let magnitude = value.abs();
+    let mut s = magnitude
+        .to_string_with(options)
+        .expect("radix 10 with a finite precision is valid");
+    if upper {
+        s = s.replace('e', "E");
+    }
+    f.pad_integral(!value.sign.is_negative(), "", &s)
+}
+
+/// Scientific notation with a lower-case `e`: the shortest decimal digits that
+/// read back as the same value without a precision, or exactly `p` digits after
+/// the point for `{:.p$e}`. See [`BigFloat::to_string_with`] for other layouts.
+///
+/// ```
+/// use libbeef::BigFloat;
+///
+/// let x = BigFloat::from_f64(1.5);
+/// assert_eq!(format!("{x:e}"), "1.5e0");
+/// assert_eq!(format!("{x:.3e}"), "1.500e0");
+/// ```
 impl fmt::LowerExp for BigFloat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n_digits = match f.precision() {
-            Some(p) => p as u64 + 1,
-            None => 0,
-        };
-        match self.to_string_radix(10, n_digits, Rounding::NearestEven, true) {
-            Some(s) => f.pad(&s),
-            None => f.pad("NaN"),
-        }
+        fmt_exp(self, f, false)
     }
 }
 
+/// Like [`LowerExp`](fmt::LowerExp) but with an upper-case `E`.
 impl fmt::UpperExp for BigFloat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n_digits = match f.precision() {
-            Some(p) => p as u64 + 1,
-            None => 0,
-        };
-        match self.to_string_radix(10, n_digits, Rounding::NearestEven, true) {
-            Some(mut s) => {
-                if let Some(pos) = s.find('e') {
-                    s.replace_range(pos..pos + 1, "E");
-                }
-                f.pad(&s)
-            }
-            None => f.pad("NaN"),
-        }
+        fmt_exp(self, f, true)
     }
 }
 
