@@ -186,3 +186,13 @@ fn constants_report_rounding_status() {
         core::f64::consts::LN_2.next_up()
     );
 }
+
+#[test]
+fn pow_faithful_skips_exact_power_detection() {
+    // Expected values from C libbf: pow(4, 0.5) under RNDF is inexact.
+    let f = fmt(53, Rounding::Faithful, ExpBits::Bits(11), true);
+    let half = BigFloat::from_raw(Sign::Positive, 0, vec![1 << 63]);
+    let (r, st) = BigFloat::from_i64(4).pow_status(&half, f);
+    assert_eq!(st, Status::INEXACT);
+    assert_eq!((r.raw_exp(), r.limbs()), (2, &[1u64 << 63][..]));
+}

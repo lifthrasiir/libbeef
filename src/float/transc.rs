@@ -1069,7 +1069,7 @@ fn pow_positive(
     // this case through `check_exact_power2n` below.
     // (b*y needs at most 63 fractional bits of y, so 128 bits suffice for
     // any b*y whose integer part could possibly be a meaningful exponent.)
-    if x.exp - x.get_exp_min() == 1 {
+    if format.rounding != Rounding::Faithful && x.exp - x.get_exp_min() == 1 {
         let (e, mul_status) = y.mul_i64_status(x.exp - 1, fmt_bits(128));
         if mul_status.is_empty() && e.get_exp_min() >= 0 {
             return pow2_int(&e, format);
