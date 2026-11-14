@@ -66,9 +66,9 @@ fn digit_char(v: u8) -> u8 {
     }
 }
 
-fn bf_pow_ui(base: &BigFloat, exp: u64, prec: u64, rounding: Rounding) -> BigFloat {
+fn bf_pow_ui(base: &BigFloat, exp: u64, prec: u64, rounding: Rounding) -> (BigFloat, Status) {
     if exp == 0 {
-        return BigFloat::from_u64(1);
+        return (BigFloat::from_u64(1), Status::empty());
     }
     // libbf passes `BF_FLAG_EXT_EXP` whenever the precision is finite.
     let fmt = BigFormat {
@@ -83,17 +83,22 @@ fn bf_pow_ui(base: &BigFloat, exp: u64, prec: u64, rounding: Rounding) -> BigFlo
     let actual_fmt = if prec == u64::MAX { inf } else { fmt };
 
     let mut r = base.clone();
+    let mut status = Status::empty();
     let n_bits = 64 - exp.leading_zeros();
     for i in (0..n_bits - 1).rev() {
-        r = r.mul(&r, actual_fmt);
+        let (sq, st) = r.sqr_status(actual_fmt);
+        r = sq;
+        status |= st;
         if (exp >> i) & 1 != 0 {
-            r = r.mul(base, actual_fmt);
+            let (m, st) = r.mul_status(base, actual_fmt);
+            r = m;
+            status |= st;
         }
     }
-    r
+    (r, status)
 }
 
-fn bf_pow_ui_ui(a: u64, b: u64, prec: u64, rounding: Rounding) -> BigFloat {
+fn bf_pow_ui_ui(a: u64, b: u64, prec: u64, rounding: Rounding) -> (BigFloat, Status) {
     if a == 10 && b <= 19 {
         static POW10: [u64; 20] = [
             1,
@@ -117,7 +122,7 @@ fn bf_pow_ui_ui(a: u64, b: u64, prec: u64, rounding: Rounding) -> BigFloat {
             1_000_000_000_000_000_000,
             10_000_000_000_000_000_000,
         ];
-        return BigFloat::from_u64(POW10[b as usize]);
+        return (BigFloat::from_u64(POW10[b as usize]), Status::empty());
     }
     let base = BigFloat::from_u64(a);
     bf_pow_ui(&base, b, prec, rounding)
@@ -146,7 +151,7 @@ fn bf_integer_from_radix_rec(
         pow_tab.resize(level as usize + 1, BigFloat::new());
     }
     if pow_tab[level as usize].is_zero() && pow_tab[level as usize].limbs().is_empty() {
-        pow_tab[level as usize] = bf_pow_ui_ui(radixl, n2, u64::MAX, Rounding::TowardZero);
+        pow_tab[level as usize] = bf_pow_ui_ui(radixl, n2, u64::MAX, Rounding::TowardZero).0;
     }
     let b = pow_tab[level as usize].clone();
 
@@ -206,7 +211,7 @@ fn bf_integer_to_radix_rec(
     }
 
     if pow_tab[level as usize].0.is_zero() {
-        let b = bf_pow_ui_ui(radixl, n2, u64::MAX, Rounding::TowardZero);
+        let b = bf_pow_ui_ui(radixl, n2, u64::MAX, Rounding::TowardZero).0;
         let one = BigFloat::from_u64(1);
         let b_inv_prec = (n2 + 1) * radixl_bits as u64 + 2;
         let b_inv = one.div(
@@ -306,7 +311,7 @@ fn bf_mul_pow_radix(
     let expn_sign = expn < 0;
 
     if matches!(format.precision, Precision::Infinite) {
-        let b = bf_pow_ui_ui(radix as u64, e, u64::MAX, Rounding::NearestEven);
+        let b = bf_pow_ui_ui(radix as u64, e, u64::MAX, Rounding::NearestEven).0;
         let inf = BigFormat {
             precision: Precision::Infinite,
             ..BigFormat::INTERNAL
@@ -337,23 +342,26 @@ fn bf_mul_pow_radix(
             rounding: Rounding::NearestEven,
             ..BigFormat::INTERNAL_EXT
         };
-        let b = bf_pow_ui_ui(radix as u64, e, work_prec, Rounding::NearestEven);
-        let r = if expn_sign {
-            t.div(&b, work_fmt)
+        let (b, mut ret) = bf_pow_ui_ui(radix as u64, e, work_prec, Rounding::NearestEven);
+        let overflow = !b.is_finite();
+        let (r, st) = if expn_sign {
+            t.div_status(&b, work_fmt)
         } else {
-            t.mul(&b, work_fmt)
+            t.mul_status(&b, work_fmt)
         };
+        ret |= st;
 
-        if r.can_round(prec, format.rounding, prec1) || !r.is_finite() {
-            let (rounded, mut status) = r.round_status_owned(format);
-            status |= Status::INEXACT;
-            return (rounded, status);
+        // Only an inexact intermediate result needs the rounding test.
+        let need_more = ret.contains(Status::INEXACT)
+            && !r.can_round(prec, format.rounding, prec1)
+            && !overflow
+            && r.is_finite();
+        if !need_more || ziv_extra_bits > 100_000 {
+            let (rounded, st) = r.round_status_owned(format);
+            return (rounded, st | (ret & Status::INEXACT));
         }
 
         ziv_extra_bits = ziv_extra_bits + ziv_extra_bits / 2;
-        if ziv_extra_bits > 100_000 {
-            return r.round_status_owned(format);
-        }
     }
 }
 
@@ -398,7 +406,7 @@ fn bf_convert_to_radix(
                 ..BigFormat::INTERNAL_EXT
             };
 
-            let pow = bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven);
+            let pow = bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven).0;
             let r = if !exp_sign {
                 a.mul(&pow, work_fmt)
             } else {
@@ -419,7 +427,7 @@ fn bf_convert_to_radix(
             return (r, e);
         }
 
-        let bound = bf_pow_ui_ui(radix as u64, p, u64::MAX, Rounding::TowardZero);
+        let bound = bf_pow_ui_ui(radix as u64, p, u64::MAX, Rounding::TowardZero).0;
         if r.cmp_abs(&bound) == core::cmp::Ordering::Less {
             return (r, e);
         }

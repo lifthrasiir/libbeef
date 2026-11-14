@@ -84,3 +84,42 @@ fn large_but_valid_exponents() {
         "+-230584300921369349:8000000000000000 st=0 n=20"
     );
 }
+
+#[test]
+fn exact_parses_are_not_inexact() {
+    let ne = |s: &str| show(10, 53, s);
+    assert_eq!(ne(".5"), "+0:8000000000000000 st=0 n=2");
+    assert_eq!(ne("5."), "+3:a000000000000000 st=0 n=2");
+    assert_eq!(ne("1e5"), "+17:c350000000000000 st=0 n=3");
+    assert_eq!(ne("1e1"), "+4:a000000000000000 st=0 n=3");
+    assert_eq!(ne("1.5e3"), "+11:bb80000000000000 st=0 n=5");
+    assert_eq!(ne("0.5"), "+0:8000000000000000 st=0 n=3");
+    // Inexact parses still report INEXACT.
+    assert_eq!(ne("0.1"), "+-3:ccccccccccccd000 st=16 n=3");
+    assert_eq!(ne("1e30"), "+100:c9f2c9cd04675000 st=16 n=4");
+}
+
+#[test]
+fn exact_parses_with_directed_rounding() {
+    let o = |r| opts(10, Some(53), r);
+    assert_eq!(
+        show_with(o(Rounding::TowardZero), "0.5"),
+        "+0:8000000000000000 st=0 n=3"
+    );
+    assert_eq!(
+        show_with(o(Rounding::TowardNegative), "1.5e3"),
+        "+11:bb80000000000000 st=0 n=5"
+    );
+    assert_eq!(
+        show_with(o(Rounding::TowardPositive), "1e22"),
+        "+74:878678326eac9000 st=0 n=4"
+    );
+    assert_eq!(
+        show_with(o(Rounding::TowardPositive), "1e30"),
+        "+100:c9f2c9cd04675000 st=16 n=4"
+    );
+    assert_eq!(
+        show_with(o(Rounding::TowardZero), "1e30"),
+        "+100:c9f2c9cd04674800 st=16 n=4"
+    );
+}
