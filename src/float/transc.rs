@@ -171,7 +171,8 @@ impl BigFloat {
     ///
     /// Corresponds to `bf_remquo` in libbf. Returns `(quotient_low_bits, remainder)`,
     /// where `quotient_low_bits` is the integer quotient modulo 2^64 in two's
-    /// complement (exact for quotients that fit in `i64`).
+    /// complement (exact for quotients that fit in `i64`). `rnd_mode` rounds the
+    /// quotient; as in libbf, [`Rounding::Faithful`] selects the Euclidean mode.
     ///
     /// ```
     /// use libbeef::{BigFloat, BigFormat, Rounding};
@@ -187,7 +188,11 @@ impl BigFloat {
             Rounding::NearestEven => DivRemMode::NearestEven,
             Rounding::TowardZero => DivRemMode::TowardZero,
             Rounding::TowardNegative => DivRemMode::Floor,
-            _ => DivRemMode::NearestEven,
+            Rounding::TowardPositive => DivRemMode::Ceil,
+            Rounding::NearestAway => DivRemMode::NearestAway,
+            Rounding::AwayFromZero => DivRemMode::AwayFromZero,
+            // `BF_RNDF` is `BF_DIVREM_EUCLIDIAN` in `bf_remquo`.
+            Rounding::Faithful => DivRemMode::Euclidean,
         };
         let (q, r, _status) = self.div_rem_status(rhs, format, rnd_mode_div);
         (q.int_mod_u64() as i64, r)

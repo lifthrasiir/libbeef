@@ -90,3 +90,21 @@ fn divrem_supports_all_libbf_quotient_modes() {
         assert_eq!(to_i(&r2), er, "rem({a}, {b}, {mode:?})");
     }
 }
+
+#[test]
+fn remquo_maps_rounding_modes_like_libbf() {
+    let f = BigFormat::BINARY64;
+    let cases = [
+        (4, 3, Rounding::TowardPositive, 2, -2),
+        (4, 3, Rounding::AwayFromZero, 2, -2),
+        (5, 2, Rounding::NearestAway, 3, -1),
+        (-4, 3, Rounding::Faithful, -2, 2),
+        (5, 2, Rounding::NearestEven, 2, 1),
+        (-4, 3, Rounding::TowardNegative, -2, 2),
+        (-4, 3, Rounding::TowardZero, -1, -1),
+    ];
+    for (a, b, rnd, eq, er) in cases {
+        let (q, r) = i(a).remquo(&i(b), f, rnd);
+        assert_eq!((q, to_i(&r)), (eq, er), "remquo({a}, {b}, {rnd:?})");
+    }
+}
