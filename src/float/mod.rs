@@ -2036,6 +2036,11 @@ impl BigFloat {
 
         let significant_bits = l * 64;
         if prec > 0 && significant_bits <= prec {
+            // Nothing to round, but the range checks of `__bf_round` apply.
+            if self.exp < e_min && !format.subnormal {
+                *self = BigFloat::zero(self.sign);
+                return Status::UNDERFLOW | Status::INEXACT;
+            }
             if self.exp > e_max {
                 let (r, s) = self.set_overflow(prec1, format);
                 *self = r;
