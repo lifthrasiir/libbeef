@@ -997,16 +997,6 @@ impl BigFloat {
 
     /// In-place addition. Returns the status flags.
     pub fn add_assign(&mut self, rhs: &Self, format: BigFormat) -> Status {
-        if rhs.is_zero() && !self.is_nan() {
-            return self.round_finite_to_format_mut_if_finite(format);
-        }
-        if self.is_zero() && !rhs.is_nan() {
-            self.sign = rhs.sign;
-            self.exp = rhs.exp;
-            self.limbs.clear();
-            self.limbs.extend_from_slice(&rhs.limbs);
-            return self.normalize_and_round_mut(format);
-        }
         // Swap the value out instead of cloning it (C's aliased bf_add also
         // computes into a fresh buffer, but never copies the input).
         let a = core::mem::take(self);
@@ -1015,16 +1005,6 @@ impl BigFloat {
 
     /// In-place subtraction. Returns the status flags.
     pub fn sub_assign(&mut self, rhs: &Self, format: BigFormat) -> Status {
-        if rhs.is_zero() && !self.is_nan() {
-            return self.round_finite_to_format_mut_if_finite(format);
-        }
-        if self.is_zero() && !rhs.is_nan() {
-            self.sign = -rhs.sign;
-            self.exp = rhs.exp;
-            self.limbs.clear();
-            self.limbs.extend_from_slice(&rhs.limbs);
-            return self.normalize_and_round_mut(format);
-        }
         let a = core::mem::take(self);
         bf_add_internal_into(self, &a, rhs, format, true)
     }
@@ -1997,15 +1977,6 @@ impl BigFloat {
             sign,
             exp: bit_len + low_exp,
             limbs,
-        }
-    }
-
-    #[inline]
-    fn round_finite_to_format_mut_if_finite(&mut self, format: BigFormat) -> Status {
-        if self.is_finite() {
-            self.round_finite_to_format_mut(format)
-        } else {
-            Status::empty()
         }
     }
 
