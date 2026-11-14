@@ -2020,7 +2020,8 @@ impl BigFloat {
             // Infinite precision still goes through the range checks (and the
             // INEXACT flag of faithful rounding), as `BF_PREC_INF` does in libbf.
             Precision::Infinite => BF_PREC_INF,
-            Precision::Bits(bits) => bits,
+            // Like libbf, which cannot represent precisions beyond `BF_PREC_INF`.
+            Precision::Bits(bits) => bits.min(BF_PREC_INF),
             Precision::Digits(digits) => {
                 remove_low_zero_limbs(&mut self.limbs);
                 let (r, s) = self.round_to_decimal_digits(digits, format.rounding);
@@ -2029,10 +2030,6 @@ impl BigFloat {
             }
         };
         let prec1_i64 = prec1 as i64;
-        if prec1_i64 < 0 {
-            remove_low_zero_limbs(&mut self.limbs);
-            return Status::empty();
-        }
 
         let l = self.limbs.len() as i64;
         if l == 0 {
@@ -2041,7 +2038,7 @@ impl BigFloat {
 
         let (e_min, e_max) = exp_range_from_format(&format);
 
-        let infinite = matches!(format.precision, Precision::Infinite);
+        let infinite = prec1 == BF_PREC_INF;
         let prec = if infinite {
             prec1_i64
         } else if format.radix_point_precision {
@@ -2080,7 +2077,7 @@ impl BigFloat {
             Rounding::NearestEven | Rounding::NearestAway | Rounding::AwayFromZero
         ) || (rnd_mode == Rounding::TowardNegative && sign.is_negative())
             || (rnd_mode == Rounding::TowardPositive && !sign.is_negative())
-            || matches!(format.precision, Precision::Infinite);
+            || prec >= BF_PREC_INF;
 
         if rounds_to_inf {
             (Self::infinity(sign), Status::OVERFLOW | Status::INEXACT)
@@ -2573,8 +2570,8 @@ fn bf_add_internal_into(
     let tot_len = (a.limbs.len() as i64).max((b.limbs.len() as i64) + d.wrapping_add(63) / 64);
 
     let r_len = match format.precision {
-        Precision::Bits(prec) => {
-            let prec_i64 = prec as i64;
+        Precision::Bits(prec) if prec < BF_PREC_INF => {
+            let prec_i64 = prec as i64; // below `BF_PREC_INF`
             let cancelled_bits = if is_sub {
                 if d <= 1 {
                     bf_count_cancelled_bits(a, b)

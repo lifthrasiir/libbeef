@@ -204,3 +204,27 @@ fn a7_mul_exp2_clamps_and_rounds() {
     assert!(BigFloat::infinity(Sign::Negative).mul_exp2(5).is_infinite());
     assert!(BigFloat::nan().mul_exp2(5).is_nan());
 }
+
+#[test]
+fn a8_huge_precision_is_infinite() {
+    let one = val(1, 1 << 63);
+    let eps = val(-10, 1 << 63);
+    for bits in [(1_u64 << 62) - 2, 1 << 62, (1 << 62) + 5, 1 << 63, u64::MAX] {
+        let f = fmt(Precision::Bits(bits), Rounding::NearestEven, 11, true);
+        let r = one.add_status(&eps, f);
+        assert_eq!(
+            (r.0.raw_exp(), r.0.limbs()),
+            (1, &[0x8010_0000_0000_0000][..])
+        );
+        assert_eq!(r.1, Status::empty());
+        let r = one.mul_status(&eps, f);
+        assert_eq!(r.1, Status::empty());
+        assert_eq!(r.0.raw_exp(), -10);
+        check_fin(
+            &val(1, 1 << 63).round_status(f),
+            1,
+            1 << 63,
+            Status::empty(),
+        );
+    }
+}
