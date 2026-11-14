@@ -806,6 +806,22 @@ impl BigFloat {
             return (result, status);
         }
 
+        // If x = r^(2^n) for the n given by y = k/2^n, then x^y = r^k with an
+        // integer k. The result may then be exact, which the Ziv loop below
+        // cannot detect: it would never converge under directed rounding.
+        if format.rounding != Rounding::Faithful {
+            let y_emin = rhs.get_exp_min();
+            if y_emin < 0 {
+                if let Some(root) = check_exact_power2n(&x_abs, -y_emin) {
+                    let mut k = rhs.clone();
+                    k.exp -= y_emin;
+                    if let Some(k) = k.to_signed_int_limbs() {
+                        return super::pow_integer_status(&root, &k, format);
+                    }
+                }
+            }
+        }
+
         let rhs_clone = rhs.clone();
         let (mut result, status) = ziv_rounding(&x_abs, precision, adjusted_format, |a, prec| {
             pow_generic(a, &rhs_clone, prec)
@@ -969,6 +985,46 @@ fn check_exp_overflow_underflow(
     }
 
     None
+}
+
+/// Returns `r` such that `x = r^(2^n)` exactly, if there is one.
+/// `x` must be finite, positive and non-zero.
+/// Corresponds to `check_exact_power2n` in libbf.
+fn check_exact_power2n(x: &BigFloat, n: i64) -> Option<BigFloat> {
+    // x = m*2^e with m an odd integer.
+    let e = x.get_exp_min();
+    // Fast check on the exponent.
+    let er = if n > 63 {
+        if e != 0 {
+            return None;
+        }
+        0
+    } else {
+        if e & ((1_i64 << n) - 1) != 0 {
+            return None;
+        }
+        e >> n
+    };
+    let mut t = x.clone();
+    t.exp -= e;
+    // Every odd perfect square is 1 modulo 8.
+    if t.int_mod_u64() & 7 != 1 {
+        return None;
+    }
+    let one = BigFloat::from_i64(1);
+    for _ in 0..n {
+        // Every further root of 1 is 1; this also bounds the loop for tiny y.
+        if t.cmp_abs(&one) == core::cmp::Ordering::Equal {
+            break;
+        }
+        let (root, rem, _) = t.sqrtrem();
+        if !rem.is_zero() {
+            return None;
+        }
+        t = root;
+    }
+    t.exp += er;
+    Some(t)
 }
 
 fn add_epsilon(a: &BigFloat, e: i64, e_sign: bool, format: BigFormat) -> (BigFloat, Status) {
