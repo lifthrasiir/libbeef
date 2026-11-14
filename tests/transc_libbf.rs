@@ -66,3 +66,52 @@ fn pow_reduction_beyond_2_pow_53() {
         ],
     );
 }
+
+fn inf_fmt(rounding: Rounding, exp_bits: ExpBits) -> BigFormat {
+    BigFormat {
+        precision: Precision::Infinite,
+        rounding,
+        exp_bits,
+        subnormal: false,
+        radix_point_precision: false,
+    }
+}
+
+fn run_with_timeout<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(f());
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(10))
+        .expect("did not finish in time")
+}
+
+#[test]
+fn pow_infinite_precision_overflow() {
+    // libbf checks overflow and `y >= 2^61` before any exact power.
+    for rounding in [Rounding::NearestEven, Rounding::TowardZero] {
+        for base in [3, 5] {
+            let (r, st) = run_with_timeout(move || {
+                BigFloat::from_i64(base).pow_status(&pow2(62), inf_fmt(rounding, ExpBits::Bits(61)))
+            });
+            assert!(r.is_infinite() && !r.sign().is_negative(), "{r:?}");
+            assert_eq!(st, Status::OVERFLOW | Status::INEXACT);
+        }
+    }
+}
+
+#[test]
+fn pow_infinite_precision_power_of_two() {
+    // pow(2^b, y) = 2^(b*y), with the range check of mul_2exp.
+    let (r, st) = run_with_timeout(|| {
+        BigFloat::from_i64(2).pow_status(&pow2(62), inf_fmt(Rounding::NearestEven, ExpBits::Max))
+    });
+    assert!(r.is_infinite() && !r.sign().is_negative());
+    assert_eq!(st, Status::OVERFLOW | Status::INEXACT);
+    let (r, st) = BigFloat::from_i64(2).pow_status(
+        &BigFloat::from_i64(100),
+        inf_fmt(Rounding::NearestEven, ExpBits::Max),
+    );
+    assert_eq!(st, Status::empty());
+    assert_eq!(r, pow2(100));
+}

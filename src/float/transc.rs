@@ -750,10 +750,15 @@ impl BigFloat {
             Precision::Bits(bits) => bits,
             Precision::Digits(digits) => digits.saturating_mul(4).saturating_add(8).max(2),
             Precision::Infinite => {
-                if let Some(exponent) = rhs.to_signed_int_limbs() {
-                    return super::pow_integer_status(self, &exponent, format);
+                if rhs.sign.is_negative() {
+                    // libbf only accepts infinite precision for `y >= 0`.
+                    // Exact negative integer powers are an extension.
+                    return match rhs.to_signed_int_limbs() {
+                        Some(exponent) => super::pow_integer_status(self, &exponent, format),
+                        None => (Self::nan(), Status::INVALID_OP),
+                    };
                 }
-                return (Self::nan(), Status::INVALID_OP);
+                crate::format::BF_PREC_INF
             }
         };
 
@@ -1020,6 +1025,10 @@ fn pow_positive(
         }
     }
 
+    if precision == crate::format::BF_PREC_INF {
+        // A non-exact result needs infinitely many bits.
+        return (BigFloat::nan(), Status::INVALID_OP);
+    }
     ziv_rounding(x, precision, format, |a, prec| pow_generic(a, y, prec))
 }
 
@@ -1047,6 +1056,19 @@ fn pow_int_exponent(
         // pow(2^b, y) = 2^(b*y)
         let e = y.mul_i64(x.exp - 1, fmt_dir(64, Rounding::TowardZero));
         return pow2_int(&e, format);
+    }
+    if precision == crate::format::BF_PREC_INF {
+        // Exact integer power; `y >= 0` is guaranteed by the caller.
+        let y1 = get_limb(y);
+        if y1 >= 1_i64 << 61 {
+            return BigFloat::from_i64(1).set_overflow(precision, format);
+        }
+        let exponent = y.to_signed_int_limbs().unwrap();
+        let exact = BigFormat {
+            rounding: Rounding::TowardZero,
+            ..format
+        };
+        return super::pow_integer_status(x, &exponent, exact);
     }
     let can_be_exact = if y.exp <= 31 {
         // Small enough power: use exponentiation in all cases.
