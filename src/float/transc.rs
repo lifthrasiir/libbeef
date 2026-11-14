@@ -150,7 +150,9 @@ impl BigFloat {
 
     /// Computes the remainder and low-order bits of the quotient of `self / rhs`.
     ///
-    /// Corresponds to `bf_remquo` in libbf. Returns `(quotient_low_bits, remainder)`.
+    /// Corresponds to `bf_remquo` in libbf. Returns `(quotient_low_bits, remainder)`,
+    /// where `quotient_low_bits` is the integer quotient modulo 2^64 in two's
+    /// complement (exact for quotients that fit in `i64`).
     ///
     /// ```
     /// use libbeef::{BigFloat, BigFormat, Rounding};
@@ -169,15 +171,7 @@ impl BigFloat {
             _ => DivRemMode::NearestEven,
         };
         let (q, r, _status) = self.div_rem_status(rhs, format, rnd_mode_div);
-        let q_i64 = q.to_i64_truncate();
-        (q_i64, r)
-    }
-
-    fn to_i64_truncate(&self) -> i64 {
-        if self.is_zero() || !self.is_finite() {
-            return 0;
-        }
-        self.to_f64(Rounding::TowardZero) as i64
+        (q.int_mod_u64() as i64, r)
     }
 
     /// Computes the constant pi to the precision specified in `format`.

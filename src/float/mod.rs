@@ -1574,6 +1574,23 @@ impl BigFloat {
         }
     }
 
+    /// Returns the integer part of this value modulo 2^64, in two's complement
+    /// for negative values. Non-finite values give 0.
+    /// Corresponds to `bf_get_limb(.., BF_GET_INT_MOD)` in libbf.
+    pub(crate) fn int_mod_u64(&self) -> u64 {
+        if self.is_zero() || !self.is_finite() || self.exp <= 0 {
+            return 0;
+        }
+        // Bit 0 of the integer part sits at mantissa bit `total_bits - exp`.
+        let total_bits = (self.limbs.len() as i64) * 64;
+        let v = get_bits_abs(&self.limbs, total_bits - self.exp);
+        if self.sign.is_negative() {
+            v.wrapping_neg()
+        } else {
+            v
+        }
+    }
+
     /// Attempts to convert this value to a `u64`, returning `None` if the value
     /// is not a non-negative integer or is out of range.
     /// Corresponds to `bf_get_uint64` in libbf.
@@ -3216,7 +3233,6 @@ fn get_limbz_abs(limbs: &[u64], idx: i64) -> u64 {
     }
 }
 
-#[allow(dead_code)]
 fn get_bits_abs(limbs: &[u64], pos: i64) -> u64 {
     let i = pos >> 6;
     let p = (pos & 63) as u32;
