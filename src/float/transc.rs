@@ -3,13 +3,12 @@ use crate::status::Status;
 
 use super::{BigFloat, DivRemMode, Sign};
 
-#[cfg(feature = "std")]
+/// A cached faithful value of a constant (`BFConstCache` in libbf).
 struct ConstCache {
     prec: u64,
     val: BigFloat,
 }
 
-#[cfg(feature = "std")]
 impl ConstCache {
     const fn new() -> Self {
         Self {
@@ -19,41 +18,110 @@ impl ConstCache {
     }
 }
 
-#[cfg(feature = "std")]
-fn cached_const(cache: &mut ConstCache, prec: u64, compute: fn(u64) -> BigFloat) -> BigFloat {
-    if cache.prec < prec {
-        cache.val = compute(prec);
-        cache.prec = prec;
+/// Port of `bf_const_get`: rounds the cached constant to `prec` bits with
+/// `format`, recomputing it at a higher precision until the rounding is
+/// determined. Returns the rounded value (with `negative` as its sign) and
+/// the status of the rounding.
+fn const_get(
+    cache: &mut ConstCache,
+    prec: u64,
+    format: BigFormat,
+    negative: bool,
+    compute: fn(u64) -> BigFloat,
+) -> (BigFloat, Status) {
+    let mut ziv_extra_bits = 32_u64;
+    loop {
+        let mut prec1 = prec.saturating_add(ziv_extra_bits);
+        if cache.prec < prec1 {
+            cache.val = compute(prec1);
+            cache.prec = prec1;
+        } else {
+            prec1 = cache.prec;
+        }
+        let mut t = cache.val.clone();
+        t.sign = Sign::from_negative(negative);
+        if !t.can_round(prec, format.rounding, prec1) {
+            // Add more precision and retry.
+            ziv_extra_bits += ziv_extra_bits / 2;
+        } else {
+            return t.round_status_owned(format);
+        }
     }
-    cache.val.clone()
 }
 
 #[cfg(feature = "std")]
-fn cached_log2(prec: u64) -> BigFloat {
+fn const_log2_get(prec: u64, format: BigFormat) -> (BigFloat, Status) {
     use std::cell::RefCell;
     thread_local! {
         static CACHE: RefCell<ConstCache> = const { RefCell::new(ConstCache::new()) };
     }
-    CACHE.with(|c| cached_const(&mut c.borrow_mut(), prec, const_log2_internal))
+    CACHE.with(|c| {
+        const_get(
+            &mut c.borrow_mut(),
+            prec,
+            format,
+            false,
+            const_log2_internal,
+        )
+    })
 }
 
 #[cfg(not(feature = "std"))]
-fn cached_log2(prec: u64) -> BigFloat {
-    const_log2_internal(prec)
+fn const_log2_get(prec: u64, format: BigFormat) -> (BigFloat, Status) {
+    const_get(
+        &mut ConstCache::new(),
+        prec,
+        format,
+        false,
+        const_log2_internal,
+    )
 }
 
 #[cfg(feature = "std")]
-fn cached_pi(prec: u64) -> BigFloat {
+fn const_pi_get(prec: u64, format: BigFormat, negative: bool) -> (BigFloat, Status) {
     use std::cell::RefCell;
     thread_local! {
         static CACHE: RefCell<ConstCache> = const { RefCell::new(ConstCache::new()) };
     }
-    CACHE.with(|c| cached_const(&mut c.borrow_mut(), prec, const_pi_internal))
+    CACHE.with(|c| {
+        const_get(
+            &mut c.borrow_mut(),
+            prec,
+            format,
+            negative,
+            const_pi_internal,
+        )
+    })
 }
 
 #[cfg(not(feature = "std"))]
-fn cached_pi(prec: u64) -> BigFloat {
-    const_pi_internal(prec)
+fn const_pi_get(prec: u64, format: BigFormat, negative: bool) -> (BigFloat, Status) {
+    const_get(
+        &mut ConstCache::new(),
+        prec,
+        format,
+        negative,
+        const_pi_internal,
+    )
+}
+
+/// `bf_const_log2(T, prec, rnd)` with the default exponent range.
+fn log2_rnd(prec: u64, rounding: Rounding) -> BigFloat {
+    const_log2_get(prec, fmt_dir(prec, rounding)).0
+}
+
+/// `bf_const_pi(T, prec, BF_RNDF)`.
+fn pi_rndf(prec: u64) -> BigFloat {
+    const_pi_get(prec, fmt_faithful(prec), false).0
+}
+
+/// Bits of precision for `format`, or `None` for infinite precision.
+fn const_precision(format: BigFormat) -> Option<u64> {
+    match format.precision {
+        Precision::Bits(bits) => Some(bits),
+        Precision::Digits(digits) => Some(digits.saturating_mul(4).saturating_add(8).max(2)),
+        Precision::Infinite => None,
+    }
 }
 
 fn isqrt(a: u64) -> u64 {
@@ -210,14 +278,16 @@ impl BigFloat {
     /// assert!((f - std::f64::consts::PI).abs() < 1e-15);
     /// ```
     pub fn pi(format: BigFormat) -> Self {
-        let precision = match format.precision {
-            Precision::Bits(bits) => bits,
-            Precision::Digits(digits) => digits.saturating_mul(4).saturating_add(8).max(2),
-            Precision::Infinite => return Self::nan(),
-        };
-        let prec1 = precision + 64;
-        let pi = cached_pi(prec1);
-        pi.round(format)
+        Self::pi_status(format).0
+    }
+
+    /// Computes the constant pi like [`BigFloat::pi`], returning the status
+    /// flags of the final rounding as well (`bf_const_pi` returns them).
+    pub fn pi_status(format: BigFormat) -> (Self, Status) {
+        match const_precision(format) {
+            Some(precision) => const_pi_get(precision, format, false),
+            None => (Self::nan(), Status::INVALID_OP),
+        }
     }
 
     /// Computes the constant ln(2) to the precision specified in `format`.
@@ -232,14 +302,16 @@ impl BigFloat {
     /// assert!((f - std::f64::consts::LN_2).abs() < 1e-15);
     /// ```
     pub fn log2(format: BigFormat) -> Self {
-        let precision = match format.precision {
-            Precision::Bits(bits) => bits,
-            Precision::Digits(digits) => digits.saturating_mul(4).saturating_add(8).max(2),
-            Precision::Infinite => return Self::nan(),
-        };
-        let prec1 = precision + 64;
-        let log2 = cached_log2(prec1);
-        log2.round(format)
+        Self::log2_status(format).0
+    }
+
+    /// Computes the constant ln(2) like [`BigFloat::log2`], returning the
+    /// status flags of the final rounding as well.
+    pub fn log2_status(format: BigFormat) -> (Self, Status) {
+        match const_precision(format) {
+            Some(precision) => const_log2_get(precision, format),
+            None => (Self::nan(), Status::INVALID_OP),
+        }
     }
 
     /// Computes e^self (the exponential function), returning status flags as well.
@@ -516,13 +588,9 @@ impl BigFloat {
                 Precision::Digits(digits) => digits.saturating_mul(4).saturating_add(8).max(2),
                 Precision::Infinite => return (Self::nan(), Status::INVALID_OP),
             };
-            let pi = cached_pi(precision + 32);
-            let half_pi = pi.mul_exp2(-1);
-            let mut result = half_pi;
-            if self.sign.is_negative() {
-                result = result.neg();
-            }
-            return result.round_status_owned(format);
+            // As in libbf, the status of rounding pi is discarded.
+            let (pi, _) = const_pi_get(precision, format, self.sign.is_negative());
+            return (pi.mul_exp2(-1), Status::INEXACT);
         }
         if self.is_zero() {
             return (self.clone(), Status::empty());
@@ -535,13 +603,8 @@ impl BigFloat {
         };
 
         if self.cmp_abs(&Self::from_i64(1)) == core::cmp::Ordering::Equal {
-            let pi = cached_pi(precision + 32);
-            let quarter_pi = pi.mul_exp2(-2);
-            let mut result = quarter_pi;
-            if self.sign.is_negative() {
-                result = result.neg();
-            }
-            return result.round_status_owned(format);
+            let (pi, _) = const_pi_get(precision, format, self.sign.is_negative());
+            return (pi.mul_exp2(-2), Status::INEXACT);
         }
 
         if self.exp < 0 {
@@ -681,9 +744,8 @@ impl BigFloat {
                 Precision::Digits(digits) => digits.saturating_mul(4).saturating_add(8).max(2),
                 Precision::Infinite => return (Self::nan(), Status::INVALID_OP),
             };
-            let pi = cached_pi(precision + 32);
-            let half_pi = pi.mul_exp2(-1);
-            return half_pi.round_status_owned(format);
+            let (pi, _) = const_pi_get(precision, format, false);
+            return (pi.mul_exp2(-1), Status::INEXACT);
         }
 
         let precision = match format.precision {
@@ -940,9 +1002,9 @@ fn check_exp_overflow_underflow(
     } else {
         e_min
     };
-    // `cached_log2(128)` is accurate enough for directed rounding to 64 bits
+    // `log2_rnd(128, Rounding::Faithful)` is accurate enough for directed rounding to 64 bits
     // to give valid bounds.
-    let log2 = cached_log2(128);
+    let log2 = log2_rnd(128, Rounding::Faithful);
 
     // a_low > e_max * log(2) implies exp(a) > 2^e_max.
     let upper = log2.mul_i64(e_max, fmt_dir(64, Rounding::TowardPositive));
@@ -1335,7 +1397,7 @@ fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
 
     let fmt1 = fmt_bits(prec1);
 
-    let log2 = cached_log2(prec1);
+    let log2 = log2_rnd(prec1, Rounding::Faithful);
     let mut t = log2.mul_i64(n, fmt1);
     t.rsub_assign(a, fmt1);
     t.mul_exp2_mut(-(k as i64));
@@ -1409,7 +1471,7 @@ fn log_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
 
     r.mul_exp2_mut(k as i64 + 1);
 
-    let log2 = cached_log2(prec1);
+    let log2 = log2_rnd(prec1, Rounding::Faithful);
     u = log2.mul_i64(n, fmt1);
     r.add_assign(&u, fmt1);
 
@@ -1453,7 +1515,7 @@ fn sincos_select(
         loop {
             let prec2 = prec1 as i64 + a.exp + cancel;
             let prec2 = prec2.max(64) as u64;
-            let pi = cached_pi(prec2);
+            let pi = pi_rndf(prec2);
             let half_pi = pi.mul_exp2(-1);
             let (q, rem) = a.remquo(&half_pi, fmt_bits(prec2), Rounding::NearestEven);
             if q == 0 || (!rem.is_zero() && (rem.exp + prec2 as i64) >= (prec1 as i64 - 1)) {
@@ -1574,7 +1636,7 @@ fn atan_internal(a: &BigFloat, prec: u64, add_pi2: bool) -> (BigFloat, Status) {
     }
 
     if i != 0 {
-        let mut pi_part = cached_pi(prec1);
+        let mut pi_part = pi_rndf(prec1);
         if i != 2 && i != -2 {
             pi_part.mul_exp2_mut(-1);
         }
@@ -1608,7 +1670,7 @@ fn atan2_internal(y: &BigFloat, x: &BigFloat, prec: u64) -> (BigFloat, Status) {
     let (mut r, mut ret) = atan_internal(&t, prec1, false);
 
     if x.sign.is_negative() {
-        let mut pi = cached_pi(prec1);
+        let mut pi = pi_rndf(prec1);
         pi.sign = y.sign;
         r.add_assign(&pi, fmt1);
         ret |= Status::INEXACT;

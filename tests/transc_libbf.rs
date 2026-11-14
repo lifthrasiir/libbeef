@@ -157,3 +157,32 @@ fn pow_exact_power2n_with_63_fractional_bits() {
     assert_eq!(r.raw_exp(), 1);
     assert_eq!(r.limbs(), &[1u64 << 63]);
 }
+
+#[test]
+fn constants_report_rounding_status() {
+    // `bf_const_pi` / `bf_const_log2` return the status of the final rounding.
+    let f = BigFormat::BINARY64;
+    // Compute a much more precise value first so that the cache is warm.
+    let _ = BigFloat::pi(fmt(2000, Rounding::NearestEven, ExpBits::Bits(61), false));
+    let (pi, st) = BigFloat::pi_status(f);
+    assert_eq!(st, Status::INEXACT);
+    assert_eq!(
+        (pi.raw_exp(), pi.limbs()),
+        (2, &[0xc90fdaa22168c000_u64][..])
+    );
+    let (r, st) = BigFloat::pi_status(BigFormat {
+        rounding: Rounding::TowardZero,
+        ..f
+    });
+    assert_eq!(st, Status::INEXACT);
+    assert_eq!(r.limbs(), &[0xc90fdaa22168c000_u64]);
+    let (r, st) = BigFloat::log2_status(BigFormat {
+        rounding: Rounding::TowardPositive,
+        ..f
+    });
+    assert_eq!(st, Status::INEXACT);
+    assert_eq!(
+        r.to_f64(Rounding::NearestEven),
+        core::f64::consts::LN_2.next_up()
+    );
+}
