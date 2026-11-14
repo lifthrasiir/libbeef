@@ -82,3 +82,45 @@ fn to_string_radix_power_of_two_matches_libbf() {
         );
     }
 }
+
+const FIXED_GENERAL: &[Case] = &[
+    (10, 3, 0, false, "V", 0, 14, "c0e4000000000000", "1.23e4"),
+    (
+        12,
+        25,
+        0,
+        false,
+        "V",
+        0,
+        101,
+        "8000000000000000",
+        "9.289b0aa342b15786599765a9@27",
+    ),
+    (10, 3, 0, false, "V", 0, -3, "8000000000000000", "0.0625"),
+    (10, 5, 1, false, "V", 0, 4, "b000000000000000", "11.000"),
+    (
+        7,
+        6,
+        0,
+        false,
+        "V",
+        1,
+        40,
+        "abcdef0123456789",
+        "-1.04212e14",
+    ),
+];
+
+/// The fixed format switches to exponential notation as soon as the exponent
+/// exceeds the number of digits.
+#[test]
+fn to_string_radix_general_matches_libbf() {
+    for &(radix, prec, r, force, kind, sign, expn, hex, expected) in FIXED_GENERAL {
+        let a = make(kind, sign, expn, hex);
+        let s = a.to_string_radix(radix, prec, rnd(r), force).unwrap();
+        assert_eq!(
+            s, expected,
+            "radix={radix} prec={prec} rnd={r} force={force} {kind} {sign} {expn} {hex}"
+        );
+    }
+}

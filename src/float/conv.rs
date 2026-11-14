@@ -1087,7 +1087,7 @@ fn bf_ftoa_internal(
     }
 
     let n_digits = prec;
-    let n_max = n_digits as i64 + if radix.is_power_of_two() { 0 } else { 4 };
+    let n_max = n_digits as i64;
     let a1;
     let n;
     if radix.is_power_of_two() {
