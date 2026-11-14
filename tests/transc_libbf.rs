@@ -137,3 +137,13 @@ fn small_argument_epsilon_status() {
     assert!(r.is_zero());
     assert_eq!(st, under);
 }
+
+#[test]
+fn ziv_rounding_subnormal_underflow() {
+    // atan2(-0xf3d4e7 * 2^-24, 2^1023) is inexact and rounds to a subnormal.
+    let y = BigFloat::from_raw(Sign::Negative, 0, vec![0xf3d4e7 << 40]);
+    let x = pow2(1023);
+    let (r, st) = y.atan2_status(&x, BigFormat::BINARY64);
+    assert!(r.sign() == Sign::Negative);
+    assert_eq!(st, Status::UNDERFLOW | Status::INEXACT);
+}

@@ -1979,6 +1979,21 @@ impl BigFloat {
     }
 
     fn round_finite_to_format_mut(&mut self, format: BigFormat) -> Status {
+        self.round_finite_with_status_mut(format, Status::empty())
+    }
+
+    /// Rounds like libbf's `__bf_round(r, prec, flags, l, ret)`: `ret` is the
+    /// status accumulated so far and is part of the returned status. A
+    /// subnormal result gets UNDERFLOW whenever `ret` or the rounding is inexact.
+    pub(crate) fn round_with_status(mut self, format: BigFormat, ret: Status) -> (Self, Status) {
+        if !self.is_finite() {
+            return (self, ret);
+        }
+        let status = self.round_finite_with_status_mut(format, ret);
+        (self, status)
+    }
+
+    fn round_finite_with_status_mut(&mut self, format: BigFormat, ret: Status) -> Status {
         let prec1 = match format.precision {
             // Infinite precision still goes through the range checks (and the
             // INEXACT flag of faithful rounding), as `BF_PREC_INF` does in libbf.
@@ -1989,7 +2004,7 @@ impl BigFloat {
                 remove_low_zero_limbs(&mut self.limbs);
                 let (r, s) = self.round_to_decimal_digits(digits, format.rounding);
                 *self = r;
-                return s;
+                return s | ret;
             }
         };
         let prec1_i64 = prec1 as i64;
@@ -2018,7 +2033,7 @@ impl BigFloat {
             // Nothing to round, but the range checks of `__bf_round` apply.
             if self.exp < e_min && !format.subnormal {
                 *self = BigFloat::zero(self.sign);
-                return Status::UNDERFLOW | Status::INEXACT;
+                return ret | Status::UNDERFLOW | Status::INEXACT;
             }
             if self.exp > e_max {
                 let (r, s) = self.set_overflow(prec1, format);
@@ -2026,10 +2041,13 @@ impl BigFloat {
                 return s;
             }
             remove_low_zero_limbs(&mut self.limbs);
-            return Status::empty();
+            if self.exp < e_min && ret.contains(Status::INEXACT) {
+                return ret | Status::UNDERFLOW;
+            }
+            return ret;
         }
 
-        bf_round_in_place(self, l, prec, prec1, e_min, e_max, format)
+        bf_round_in_place(self, l, prec, prec1, format, ret)
     }
 
     fn set_overflow(&self, prec: u64, format: BigFormat) -> (Self, Status) {
@@ -2215,10 +2233,10 @@ fn bf_round_in_place(
     l: i64,
     prec: i64,
     prec1: u64,
-    e_min: i64,
-    e_max: i64,
     format: BigFormat,
+    ret: Status,
 ) -> Status {
+    let (e_min, e_max) = exp_range_from_format(&format);
     let l_usize = l as usize;
 
     // Compute guard and sticky bits directly from the existing limbs.
@@ -2252,7 +2270,7 @@ fn bf_round_in_place(
 
     if prec <= 0 {
         // As in `__bf_round`, this is always reported as inexact underflow.
-        let status = Status::UNDERFLOW | Status::INEXACT;
+        let status = ret | Status::UNDERFLOW | Status::INEXACT;
         if add_one {
             r.limbs.clear();
             r.limbs.push(1_u64 << 63);
@@ -2295,15 +2313,15 @@ fn bf_round_in_place(
     // Check underflow
     if r.exp < e_min {
         if format.subnormal {
-            if inexact {
-                let status = Status::INEXACT | Status::UNDERFLOW;
+            if inexact || ret.contains(Status::INEXACT) {
+                let status = ret | Status::INEXACT | Status::UNDERFLOW;
                 // Clear low bits and remove trailing zeros below
                 bf_round_clear_low_bits(r, l, prec);
                 return status;
             }
         } else {
             *r = BigFloat::zero(r.sign);
-            return Status::UNDERFLOW | Status::INEXACT;
+            return ret | Status::UNDERFLOW | Status::INEXACT;
         }
     }
 
@@ -2317,7 +2335,7 @@ fn bf_round_in_place(
     // Clear low bits: mask off everything below `prec`
     bf_round_clear_low_bits(r, l, prec);
 
-    let mut status = Status::empty();
+    let mut status = ret;
     if inexact {
         status |= Status::INEXACT;
     }

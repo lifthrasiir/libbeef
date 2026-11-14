@@ -1187,9 +1187,9 @@ fn ziv_rounding(
         }
 
         if r.can_round(precision, rnd_mode, prec1) {
-            let (rounded, mut status) = r.round_status_owned(format);
-            status |= Status::INEXACT;
-            return (rounded, status);
+            // As in libbf, the INEXACT flag goes through the rounding so that
+            // a subnormal result also reports UNDERFLOW.
+            return r.round_with_status(format, Status::INEXACT);
         }
         ziv_extra_bits = ziv_extra_bits.saturating_mul(2);
         if ziv_extra_bits > 100_000 {
