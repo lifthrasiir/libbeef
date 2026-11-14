@@ -143,3 +143,14 @@ fn ftoa_exact_value_directed_rounding() {
         .unwrap();
     assert_eq!(s, "1e-50000");
 }
+
+#[test]
+fn infinite_precision_reports_inexact_division() {
+    let inf = |radix, s| show_with(opts(radix, None, Rounding::NearestEven), s);
+    assert_eq!(inf(10, "0.1"), "+-3:cccccccccccccccd st=16 n=3");
+    assert_eq!(inf(10, "1e-3"), "+-9:83126e978d4fdf3b st=16 n=4");
+    assert_eq!(inf(3, "1@-1"), "+-1:aaaaaaaaaaaaaaab st=16 n=4");
+    assert_eq!(inf(10, "1.5"), "+1:c000000000000000 st=0 n=3");
+    assert_eq!(inf(10, "125e-2"), "+1:a000000000000000 st=0 n=6");
+    assert_eq!(inf(10, "1e5"), "+17:c350000000000000 st=0 n=3");
+}

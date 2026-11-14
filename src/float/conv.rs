@@ -311,25 +311,26 @@ fn bf_mul_pow_radix(
     let expn_sign = expn < 0;
 
     if matches!(format.precision, Precision::Infinite) {
-        let b = bf_pow_ui_ui(radix as u64, e, u64::MAX, Rounding::NearestEven).0;
+        // Infinite precision is only meaningful if the result is known to be
+        // exact; a division that is not reports INEXACT.
+        let (b, ret) = bf_pow_ui_ui(radix as u64, e, u64::MAX, Rounding::NearestEven);
         let inf = BigFormat {
             precision: Precision::Infinite,
             ..BigFormat::INTERNAL
         };
-        if expn_sign {
-            let r = t.div(
+        let (r, st) = if expn_sign {
+            t.div_status(
                 &b,
                 BigFormat {
                     precision: Precision::Bits(t.limbs().len() as u64 * 64),
                     rounding: Rounding::NearestEven,
                     ..BigFormat::INTERNAL
                 },
-            );
-            return (r, Status::empty());
+            )
         } else {
-            let r = t.mul(&b, inf);
-            return (r, Status::empty());
-        }
+            t.mul_status(&b, inf)
+        };
+        return (r, ret | st);
     }
 
     let mut ziv_extra_bits = 16_u64;
