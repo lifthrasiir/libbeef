@@ -1821,11 +1821,15 @@ impl BigFloat {
     /// given rounding mode, assuming at least `k` correct bits are available.
     /// Corresponds to `bf_can_round` in libbf.
     pub fn can_round(&self, precision: u64, rounding: Rounding, k: u64) -> bool {
-        if !self.is_finite() || self.is_zero() {
+        if !self.is_finite() {
             return false;
         }
+        // As in libbf, the faithful test comes before the zero test.
         if rounding == Rounding::Faithful {
             return k >= precision.saturating_add(1);
+        }
+        if self.is_zero() {
+            return false;
         }
         if k < precision.saturating_add(2) {
             return false;

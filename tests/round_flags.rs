@@ -121,3 +121,13 @@ fn a5_infinite_precision_checks_the_range() {
     let f = fmt(Precision::Infinite, Rounding::NearestEven, 11, false);
     check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::empty());
 }
+
+#[test]
+fn a6_can_round_faithful_zero() {
+    let zero = BigFloat::from_u64(0);
+    assert!(zero.can_round(53, Rounding::Faithful, 100));
+    assert!(!zero.can_round(53, Rounding::Faithful, 53));
+    assert!(!zero.can_round(53, Rounding::NearestEven, 100));
+    assert!(!BigFloat::nan().can_round(53, Rounding::Faithful, 100));
+    assert!(!BigFloat::infinity(Sign::Positive).can_round(53, Rounding::Faithful, 100));
+}
