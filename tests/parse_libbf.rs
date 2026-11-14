@@ -154,3 +154,29 @@ fn infinite_precision_reports_inexact_division() {
     assert_eq!(inf(10, "125e-2"), "+1:a000000000000000 st=0 n=6");
     assert_eq!(inf(10, "1e5"), "+17:c350000000000000 st=0 n=3");
 }
+
+#[test]
+fn negative_zero() {
+    for (radix, s, n) in [
+        (10, "-0.0", 4),
+        (10, "-00.000e5", 9),
+        (10, "-.0", 3),
+        (10, "-0", 2),
+        (10, "-0e5", 4),
+        (3, "-0.0@3", 6),
+        (16, "-0.0p3", 6),
+        (2, "-.0", 3),
+    ] {
+        assert_eq!(show(radix, 53, s), format!("-0 st=0 n={n}"), "{s}");
+    }
+    assert_eq!(
+        show_with(opts(10, None, Rounding::NearestEven), "-0.0"),
+        "-0 st=0 n=4"
+    );
+    assert_eq!(show(10, 53, "+0.0"), "+0 st=0 n=4");
+    assert!("-0.0".parse::<BigFloat>().unwrap().sign().is_negative());
+    assert!(BigFloat::from_str_radix("-0.0@3", 3)
+        .unwrap()
+        .sign()
+        .is_negative());
+}

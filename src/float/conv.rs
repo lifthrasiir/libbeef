@@ -887,10 +887,14 @@ fn bf_atof_internal(
     expn = expn.saturating_sub((l as i64) * (digits_per_limb as i64) - int_len);
 
     let t = bf_integer_from_radix(&limb_digits, l, radix);
-    let mut t_signed = t;
-    if is_neg && !t_signed.is_zero() {
-        t_signed = t_signed.neg();
-    }
+    // A zero keeps the sign too (`-0.0`).
+    let t_signed = if t.is_zero() {
+        BigFloat::zero(Sign::from_negative(is_neg))
+    } else if is_neg {
+        t.neg()
+    } else {
+        t
+    };
 
     let (result, status) = bf_mul_pow_radix(
         &t_signed,
