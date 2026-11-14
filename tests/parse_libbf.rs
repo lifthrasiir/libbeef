@@ -180,3 +180,22 @@ fn negative_zero() {
         .sign()
         .is_negative());
 }
+
+#[test]
+fn zero_with_exponent_in_power_of_two_radix() {
+    assert_eq!(show(2, 53, "0p5"), "+0 st=0 n=3");
+    assert_eq!(show(16, 53, "0@5"), "+0 st=0 n=3");
+    assert_eq!(show(2, 53, "-0p5"), "-0 st=0 n=4");
+    assert_eq!(show(16, 53, "0p5x"), "+0 st=0 n=3");
+    assert_eq!(show(16, 53, "00@-5z"), "+0 st=0 n=5");
+    assert_eq!(show(4, 53, "0@5"), "+0 st=0 n=3");
+    assert_eq!(show(2, 53, "0p"), "+0 st=0 n=2");
+    assert_eq!(show(2, 53, "0p+"), "+0 st=0 n=3");
+    assert_eq!(show(2, 53, "0.p5"), "+0 st=0 n=4");
+    assert_eq!(show(2, 53, "-0.p5"), "-0 st=0 n=5");
+    // The exponent overflow check applies to zeros as well.
+    assert_eq!(show(16, 53, "0@99999999999999999999"), "+Inf st=20 n=20");
+    assert_eq!(show(2, 53, "0p-99999999999999999999"), "+0 st=24 n=21");
+    assert_eq!(show(2, 53, ".p5"), "ERR");
+    assert!(BigFloat::from_str_radix("0p5", 2).unwrap().is_zero());
+}

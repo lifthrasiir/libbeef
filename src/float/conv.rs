@@ -968,19 +968,6 @@ fn parse_power_of_two(
         limbs.push(cur_limb);
     }
 
-    if limbs.is_empty() {
-        if digit_count > 0 || saw_leading_zero {
-            return Ok((
-                BigFloat::zero(Sign::from_negative(is_neg)),
-                Status::empty(),
-                pos,
-            ));
-        }
-        return Err(ParseFloatError::new());
-    }
-
-    limbs.reverse();
-
     let mut expn = 0_i64;
     let mut is_bin_exp = false;
     if pos < bytes.len() {
@@ -994,6 +981,20 @@ fn parse_power_of_two(
             }
         }
     }
+
+    if limbs.is_empty() {
+        // The exponent has been parsed (and checked) even for a zero.
+        if digit_count > 0 || saw_leading_zero {
+            return Ok((
+                BigFloat::zero(Sign::from_negative(is_neg)),
+                Status::empty(),
+                pos,
+            ));
+        }
+        return Err(ParseFloatError::new());
+    }
+
+    limbs.reverse();
 
     // libbf wraps here ("XXX: may overflow"); saturate instead.
     if !is_bin_exp {
