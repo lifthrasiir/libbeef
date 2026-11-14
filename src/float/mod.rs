@@ -1391,8 +1391,8 @@ impl BigFloat {
         mode: DivRemMode,
     ) -> (i64, Self, Status) {
         let (q, r, status) = self.div_rem_status(rhs, format, mode);
-        let q_val = q.to_f64(Rounding::TowardZero) as i64;
-        (q_val, r, status)
+        // `bf_get_limb(.., BF_GET_INT_MOD)`: the low 64 bits in two's complement.
+        (q.int_mod_u64() as i64, r, status)
     }
 
     /// Bitwise OR of `self` and `rhs`. Returns the status flags as well.

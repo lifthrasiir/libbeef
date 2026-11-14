@@ -46,3 +46,19 @@ fn divrem_temporaries_ignore_the_users_exponent_range() {
     let sum = q.mul(&b, exact).add(&r, exact);
     assert_eq!(sum, a);
 }
+
+#[test]
+fn rem_quo_status_returns_low_bits_of_quotient() {
+    let f = BigFormat::BINARY64;
+    let (q, _, _) = BigFloat::from_f64(1e30).rem_quo_status(&i(3), f, DivRemMode::TowardZero);
+    assert_eq!(q, 1692321384976700757);
+    let two64_plus_1 = BigFloat::from_u64(u64::MAX).add(
+        &i(2),
+        BigFormat {
+            precision: Precision::Infinite,
+            ..BigFormat::BINARY64
+        },
+    );
+    let (q, _, _) = two64_plus_1.rem_quo_status(&i(1), f, DivRemMode::TowardZero);
+    assert_eq!(q, 1);
+}
