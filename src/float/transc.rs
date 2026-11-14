@@ -330,7 +330,7 @@ impl BigFloat {
             }
         }
         if self.is_zero() {
-            return Self::from_i64(1).round_status_owned(format);
+            return (Self::from_i64(1), Status::empty());
         }
 
         let precision = match format.precision {
@@ -431,7 +431,7 @@ impl BigFloat {
             return (Self::nan(), Status::INVALID_OP);
         }
         if self.is_zero() {
-            return Self::from_i64(1).round_status_owned(format);
+            return (Self::from_i64(1), Status::empty());
         }
 
         let precision = match format.precision {
@@ -791,7 +791,7 @@ impl BigFloat {
     /// Uses Ziv's rounding technique for correct rounding.
     pub fn pow_status(&self, rhs: &Self, format: BigFormat) -> (Self, Status) {
         if rhs.is_zero() {
-            return Self::from_i64(1).round_status_owned(format);
+            return (Self::from_i64(1), Status::empty());
         }
         if self.is_nan() || rhs.is_nan() {
             if rhs.is_nan()
@@ -799,7 +799,7 @@ impl BigFloat {
                 && self.cmp_abs(&Self::from_i64(1)) == core::cmp::Ordering::Equal
                 && !self.sign.is_negative()
             {
-                return Self::from_i64(1).round_status_owned(format);
+                return (Self::from_i64(1), Status::empty());
             }
             return (Self::nan(), Status::empty());
         }
@@ -1043,7 +1043,7 @@ fn pow_positive(
 ) -> (BigFloat, Status) {
     let one = BigFloat::from_i64(1);
     if x.cmp_abs(&one) == core::cmp::Ordering::Equal {
-        return one.round_status_owned(format);
+        return (one, Status::empty());
     }
 
     // Crude overflow and underflow tests from bounds of y*log(x).

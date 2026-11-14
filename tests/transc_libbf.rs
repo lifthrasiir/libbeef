@@ -196,3 +196,24 @@ fn pow_faithful_skips_exact_power_detection() {
     assert_eq!(st, Status::INEXACT);
     assert_eq!((r.raw_exp(), r.limbs()), (2, &[1u64 << 63][..]));
 }
+
+#[test]
+fn trivial_ones_are_exact_under_rndf() {
+    // libbf sets these results with bf_set_ui(r, 1) and never rounds them.
+    let f = fmt(53, Rounding::Faithful, ExpBits::Bits(11), true);
+    let zero = BigFloat::zero(Sign::Positive);
+    let one = BigFloat::from_i64(1);
+    let three = BigFloat::from_i64(3);
+    assert_eq!(zero.exp_status(f), (one.clone(), Status::empty()));
+    assert_eq!(zero.cos_status(f), (one.clone(), Status::empty()));
+    assert_eq!(three.pow_status(&zero, f), (one.clone(), Status::empty()));
+    assert_eq!(one.pow_status(&three, f), (one.clone(), Status::empty()));
+    assert_eq!(
+        one.neg().pow_status(&three, f),
+        (one.neg(), Status::empty())
+    );
+    assert_eq!(
+        one.pow_status(&BigFloat::nan(), f),
+        (one.clone(), Status::empty())
+    );
+}
