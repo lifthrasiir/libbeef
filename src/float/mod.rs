@@ -1359,11 +1359,8 @@ impl BigFloat {
                 let mut b_half = b1.clone();
                 b_half.exp -= 1;
                 let cmp = r.cmp_abs(&b_half);
-                let q_low_bit = if q.is_zero() {
-                    false
-                } else {
-                    q.get_bit_at_exp(q.lowest_bit_exp())
-                };
+                // The units bit of `q` (not the lowest bit of its lowest limb).
+                let q_low_bit = q.int_mod_u64() & 1 != 0;
                 if cmp == Ordering::Greater || (cmp == Ordering::Equal && q_low_bit) {
                     q = q.add(&Self::from_i64(1), inf);
                     r = r.sub(&b1, inf);
