@@ -145,3 +145,36 @@ fn integer_div_rem_never_yields_negative_zero() {
     assert_eq!(q.to_i64(), Some(-2));
     assert_eq!(r.sign(), Sign::Positive);
 }
+
+#[test]
+fn rem_special_operands_match_libbf() {
+    let f = BigFormat::BINARY64;
+    let tz = DivRemMode::TowardZero;
+    let nan = BigFloat::nan();
+    let inf = BigFloat::infinity(libbeef::Sign::Positive);
+    let (r, st) = nan.rem_status(&i(1), f, tz);
+    assert!(r.is_nan() && st.is_empty());
+    let (r, st) = i(1).rem_status(&nan, f, tz);
+    assert!(r.is_nan() && st.is_empty());
+    let (r, st) = inf.rem_status(&nan, f, tz);
+    assert!(r.is_nan() && st.is_empty());
+    let (r, st) = inf.rem_status(&i(1), f, tz);
+    assert!(r.is_nan() && st == libbeef::Status::INVALID_OP);
+    let (r, st) = i(1).rem_status(&BigFloat::new(), f, tz);
+    assert!(r.is_nan() && st == libbeef::Status::INVALID_OP);
+
+    // finite % inf is the (rounded) dividend.
+    let a = BigFloat::from_f64(1.0).add(
+        &BigFloat::from_f64(2f64.powi(-80)),
+        BigFormat {
+            precision: libbeef::format::Precision::Infinite,
+            ..f
+        },
+    );
+    let (r, st) = a.rem_status(&inf, f, tz);
+    assert_eq!(r.to_f64(Rounding::NearestEven), 1.0);
+    assert_eq!(st, libbeef::Status::INEXACT);
+    let (_, r, st) = a.div_rem_status(&inf, f, tz);
+    assert_eq!(r.to_f64(Rounding::NearestEven), 1.0);
+    assert_eq!(st, libbeef::Status::INEXACT);
+}

@@ -1283,17 +1283,20 @@ impl BigFloat {
 
     /// Computes the remainder of `self / rhs`, returning the result and status flags.
     /// Corresponds to `bf_rem` in libbf. Returns the status flags as well.
-    pub fn rem_status(&self, rhs: &Self, _format: BigFormat, mode: DivRemMode) -> (Self, Status) {
-        if self.is_nan() || rhs.is_nan() || self.is_infinite() || rhs.is_zero() {
+    pub fn rem_status(&self, rhs: &Self, format: BigFormat, mode: DivRemMode) -> (Self, Status) {
+        if self.is_nan() || rhs.is_nan() {
+            return (Self::nan(), Status::empty());
+        }
+        if self.is_infinite() || rhs.is_zero() {
             return (Self::nan(), Status::INVALID_OP);
         }
         if self.is_zero() || rhs.is_infinite() {
-            return (self.clone(), Status::empty());
+            return self.round_status(format);
         }
 
         match (self.to_scaled_signed_limbs(), rhs.to_scaled_signed_limbs()) {
             (Some(a), Some(b)) => {
-                Self::from_scaled_signed_limbs(rem_scaled(&a, &b, mode)).round_status_owned(_format)
+                Self::from_scaled_signed_limbs(rem_scaled(&a, &b, mode)).round_status_owned(format)
             }
             _ => unreachable!("finite BigFloat values are representable as scaled binary limbs"),
         }
