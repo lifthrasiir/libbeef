@@ -292,3 +292,68 @@ fn overflow_to_max_finite_under_directed_rounding() {
     assert_eq!(r.raw_exp(), 16384);
     assert_eq!(r.limbs(), &[0xffff_ffff_ffff_8000, u64::MAX]);
 }
+
+#[test]
+fn to_f64_rounds_subnormals_and_extremes() {
+    use libbeef::{BigFormat, Rounding, Status};
+    // (value in units of 2^-1074 as num * 2^-shift, expected bits) under NearestEven.
+    for (num, shift, bits) in [
+        (3_u64, 1, 2_u64), // 1.5
+        (3, 2, 1),         // 0.75
+        (5, 3, 1),         // 0.625
+        (15, 2, 4),        // 3.75
+        (7, 1, 4),         // 3.5
+        (1, 1, 0),         // 0.5, ties to even
+        (0x48d15b, 2, 0x123457),
+    ] {
+        let v = BigFloat::from_u64(num).mul_exp2(-1074 - shift);
+        let (r, st) = v.to_f64_status(Rounding::NearestEven);
+        assert_eq!(r.to_bits(), bits, "{num:#x} * 2^-{shift}");
+        assert_eq!(
+            st,
+            Status::UNDERFLOW | Status::INEXACT,
+            "{num:#x} * 2^-{shift}"
+        );
+    }
+    // Directed rounding at both ends of the range.
+    let tiny = BigFloat::from_u64(1).mul_exp2(-1100);
+    assert_eq!(tiny.to_f64(Rounding::TowardPositive).to_bits(), 1);
+    assert_eq!(tiny.to_f64(Rounding::TowardZero).to_bits(), 0);
+    let huge = BigFloat::from_u64(1).mul_exp2(2000);
+    assert_eq!(huge.to_f64(Rounding::TowardZero), f64::MAX);
+    assert_eq!(huge.to_f64(Rounding::NearestEven), f64::INFINITY);
+
+    // Must agree with rounding to binary64 first.
+    let rounds = [
+        Rounding::NearestEven,
+        Rounding::NearestAway,
+        Rounding::TowardZero,
+        Rounding::TowardPositive,
+        Rounding::TowardNegative,
+        Rounding::AwayFromZero,
+    ];
+    let mut x = 0x9e37_79b9_7f4a_7c15_u64;
+    for i in 0..4000 {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        let e = (i % 2200) as i64 - 1150;
+        let v = BigFloat::from_u64(x | 1).mul_exp2(e - 64);
+        let v = if i % 3 == 0 { v.neg() } else { v };
+        for rounding in rounds {
+            let f = BigFormat {
+                rounding,
+                ..BigFormat::BINARY64
+            };
+            let (want, want_st) = v.round_status(f);
+            let (got, got_st) = v.to_f64_status(rounding);
+            assert_eq!(
+                got.to_bits(),
+                want.to_f64(Rounding::NearestEven).to_bits(),
+                "{x:#x} * 2^{} {rounding:?}",
+                e - 64
+            );
+            assert_eq!(got_st, want_st, "{x:#x} * 2^{} {rounding:?}", e - 64);
+        }
+    }
+}

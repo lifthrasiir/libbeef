@@ -2174,112 +2174,31 @@ impl BigFloat {
     }
 
     fn normal_to_f64(&self, rounding: Rounding) -> (f64, Status) {
-        if self.exp > 1024 {
-            let value = if self.sign.is_negative() {
-                f64::NEG_INFINITY
-            } else {
-                f64::INFINITY
-            };
-            return (value, Status::OVERFLOW | Status::INEXACT);
-        }
-        if self.exp < -1073 {
-            return (
-                if self.sign.is_negative() { -0.0 } else { 0.0 },
-                Status::UNDERFLOW | Status::INEXACT,
-            );
-        }
-
-        let precision = if self.exp >= -1021 {
-            53_i64
-        } else {
-            self.exp + 1074
+        // As in bf_get_float64: round to binary64 first, then the result is
+        // exactly representable and only needs to be unpacked.
+        let format = BigFormat {
+            rounding,
+            ..BigFormat::BINARY64
         };
-        if precision <= 0 {
-            return (
-                if self.sign.is_negative() { -0.0 } else { 0.0 },
-                Status::UNDERFLOW | Status::INEXACT,
-            );
-        }
-
-        let (mant, inexact) = self.rounded_mantissa_for_precision(precision as u32, rounding);
-        let mut exp = self.exp;
-        let mut mant = mant;
-        if mant >= (1_u128 << precision) {
-            mant >>= 1;
-            exp += 1;
-        }
-        if exp > 1024 {
-            let value = if self.sign.is_negative() {
-                f64::NEG_INFINITY
-            } else {
-                f64::INFINITY
-            };
-            return (value, Status::OVERFLOW | Status::INEXACT);
-        }
-
-        let sign_bit = u64::from(self.sign.is_negative()) << 63;
-        let bits = if exp >= -1021 {
-            let exp_bits = ((exp + 1022) as u64) << 52;
-            let frac = (mant as u64) & ((1_u64 << 52) - 1);
-            sign_bit | exp_bits | frac
-        } else {
-            sign_bit | mant as u64
-        };
-
-        let mut status = Status::empty();
-        if inexact {
-            status |= Status::INEXACT;
-        }
-        if inexact && exp < -1021 {
-            status |= Status::UNDERFLOW;
-        }
-        (f64::from_bits(bits), status)
-    }
-
-    fn rounded_mantissa_for_precision(&self, precision: u32, rounding: Rounding) -> (u128, bool) {
-        debug_assert!(precision <= 64);
-        let keep_start = self.exp - i64::from(precision);
-        let mut mant = 0_u128;
-        for i in 0..precision {
-            let bit_exp = keep_start + i64::from(i);
-            if self.get_bit_at_exp(bit_exp) {
-                mant |= 1_u128 << i;
-            }
-        }
-
-        let mut inexact = false;
-        if keep_start > self.lowest_bit_exp() {
-            for bit_exp in self.lowest_bit_exp()..keep_start {
-                if self.get_bit_at_exp(bit_exp) {
-                    inexact = true;
-                    break;
+        let (r, status) = self.round_finite_to_format(format);
+        let sign_bit = u64::from(r.sign.is_negative()) << 63;
+        let bits = match r.classify() {
+            FpCategory::Zero => sign_bit,
+            FpCategory::Infinite => sign_bit | f64::INFINITY.to_bits(),
+            FpCategory::Nan => f64::NAN.to_bits(),
+            FpCategory::Normal => {
+                // At most 53 significant bits, all in the top limb.
+                let top = *r.limbs.last().expect("normal value has limbs");
+                if r.exp >= -1021 {
+                    let frac = (top >> 11) & ((1_u64 << 52) - 1);
+                    sign_bit | (((r.exp + 1022) as u64) << 52) | frac
+                } else {
+                    // Subnormal: the mantissa in units of 2^-1074.
+                    sign_bit | (top >> (-1010 - r.exp))
                 }
             }
-        }
-        if !inexact {
-            return (mant, false);
-        }
-
-        let guard = keep_start > self.lowest_bit_exp() && self.get_bit_at_exp(keep_start - 1);
-        let sticky = if keep_start > self.lowest_bit_exp() + 1 {
-            (self.lowest_bit_exp()..(keep_start - 1)).any(|bit_exp| self.get_bit_at_exp(bit_exp))
-        } else {
-            false
         };
-
-        let add_one = match rounding {
-            Rounding::NearestEven => guard && (sticky || (mant & 1) != 0),
-            Rounding::NearestAway => guard,
-            Rounding::TowardZero => false,
-            Rounding::TowardPositive => !self.sign.is_negative(),
-            Rounding::TowardNegative => self.sign.is_negative(),
-            Rounding::AwayFromZero => true,
-            Rounding::Faithful => false,
-        };
-        if add_one {
-            mant += 1;
-        }
-        (mant, true)
+        (f64::from_bits(bits), status)
     }
 
     fn lowest_bit_exp(&self) -> i64 {
