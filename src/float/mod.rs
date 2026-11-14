@@ -1347,9 +1347,11 @@ impl BigFloat {
         let a1 = self.abs();
         let b1 = rhs.abs();
 
+        // libbf's temporaries use `BF_PREC_INF` with `BF_RNDZ` and default flags:
+        // neither the caller's exponent range nor subnormals apply.
         let inf = BigFormat {
-            precision: Precision::Infinite,
-            ..format
+            rounding: Rounding::TowardZero,
+            ..BigFormat::INTERNAL
         };
 
         let (mut q, mut r) = bf_tdivremu(&a1, &b1, inf);
