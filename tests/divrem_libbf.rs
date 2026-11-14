@@ -108,3 +108,40 @@ fn remquo_maps_rounding_modes_like_libbf() {
         assert_eq!((q, to_i(&r)), (eq, er), "remquo({a}, {b}, {rnd:?})");
     }
 }
+
+fn is_neg_zero(x: &BigFloat) -> bool {
+    x.is_zero() && x.is_sign_negative()
+}
+
+#[test]
+fn divrem_zero_results_keep_libbf_signs() {
+    let f = BigFormat::BINARY64;
+    let tz = DivRemMode::TowardZero;
+    // r takes the sign of a, q the sign of a/b, even when they are zero.
+    let (q, r, _) = i(-4).div_rem_status(&i(2), f, tz);
+    assert!(q.is_sign_negative() && !q.is_zero());
+    assert!(is_neg_zero(&r));
+    let (q, r, _) = i(-1).div_rem_status(&i(3), f, tz);
+    assert!(is_neg_zero(&q));
+    assert_eq!(to_i(&r), -1);
+    let (q, r, _) = i(4).div_rem_status(&i(-2), f, tz);
+    assert_eq!(to_i(&q), -2);
+    assert!(r.is_zero() && !r.is_sign_negative());
+    let (q, r, _) = i(1).div_rem_status(&i(-3), f, tz);
+    assert!(is_neg_zero(&q));
+    assert_eq!(to_i(&r), 1);
+    // rem() zero result also carries a's sign.
+    let (r, _) = i(-4).rem_status(&i(2), f, tz);
+    assert!(is_neg_zero(&r));
+}
+
+#[test]
+fn integer_div_rem_never_yields_negative_zero() {
+    use libbeef::{Integer, Sign};
+    let (q, r) = Integer::from_i64(-1).div_rem(&Integer::from_i64(3));
+    assert_eq!(q.sign(), Sign::Positive);
+    assert_eq!(r.to_i64(), Some(-1));
+    let (q, r) = Integer::from_i64(-4).div_rem(&Integer::from_i64(2));
+    assert_eq!(q.to_i64(), Some(-2));
+    assert_eq!(r.sign(), Sign::Positive);
+}

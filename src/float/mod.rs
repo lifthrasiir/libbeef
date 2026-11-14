@@ -1364,10 +1364,9 @@ impl BigFloat {
             }
         }
 
-        if !r.is_zero() {
-            r.sign = r.sign * self.sign;
-        }
-        q.sign = if q.is_zero() { Sign::Positive } else { q_sign };
+        // As in libbf, zero results get the signs too.
+        r.sign = r.sign * self.sign;
+        q.sign = q_sign;
         let (r, status) = r.round_status_owned(format);
         (q, r, status)
     }
@@ -5677,7 +5676,9 @@ impl Integer {
         let (q, r, _status) =
             self.0
                 .div_rem_status(&rhs.0, Self::inf_format(), DivRemMode::TowardZero);
-        (Self(q), Self(r))
+        // An integer has no negative zero, whatever `bf_divrem` assigns.
+        let unsigned = |x: BigFloat| if x.is_zero() { BigFloat::new() } else { x };
+        (Self(unsigned(q)), Self(unsigned(r)))
     }
 
     /// Negates this integer.
