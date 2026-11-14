@@ -1273,6 +1273,26 @@ fn const_pi_internal(prec: u64) -> BigFloat {
     q_div.mul(&c_scaled, fmt_bits(prec))
 }
 
+/// `bf_get_limb(.., 0)`: the integer part truncated toward zero, saturating.
+fn get_limb(a: &BigFloat) -> i64 {
+    if !a.is_finite() || a.exp <= 0 || a.is_zero() {
+        return 0;
+    }
+    let top = *a.limbs.last().unwrap();
+    if a.exp <= 63 {
+        let v = (top >> (64 - a.exp)) as i64;
+        if a.sign.is_negative() {
+            -v
+        } else {
+            v
+        }
+    } else if a.sign.is_negative() {
+        i64::MIN
+    } else {
+        i64::MAX
+    }
+}
+
 fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
     let n: i64 = if a.exp <= -1 {
         if a.sign.is_negative() {
@@ -1281,16 +1301,9 @@ fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
             0
         }
     } else {
-        let log2 = cached_log2(64);
-        let q = a.div(&log2, fmt_bits(64));
-        let f = q.to_f64(Rounding::TowardNegative);
-        // `f64::floor` is unavailable in `no_std`.
-        let n = f as i64;
-        if (n as f64) > f {
-            n.saturating_sub(1)
-        } else {
-            n
-        }
+        let log2 = BigFloat::log2(fmt_dir(64, Rounding::TowardZero));
+        let q = a.div(&log2, fmt_dir(64, Rounding::TowardNegative));
+        get_limb(&q)
     };
 
     let k = isqrt(prec.div_ceil(2));
