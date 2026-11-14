@@ -74,3 +74,19 @@ fn cos_of_tiny_values_at_range_limit() {
     assert_eq!(st, Status::INEXACT);
     assert_eq!(r.raw_exp(), 1);
 }
+
+#[test]
+fn bits_62_is_extended() {
+    // libbf encodes 62 exponent bits as BF_FLAG_EXT_EXP.
+    let a = pow2(1 << 59);
+    let (r, st) = a.mul_status(&a, fmt(ExpBits::Bits(62)));
+    assert_eq!(st, Status::empty());
+    assert_eq!(r.raw_exp(), (1 << 60) + 1);
+}
+
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "valid range")]
+fn bits_out_of_range_is_rejected() {
+    let _ = BigFloat::from_u64(1).round_status(fmt(ExpBits::Bits(2)));
+}

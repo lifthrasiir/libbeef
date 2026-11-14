@@ -110,6 +110,9 @@ impl Default for BigFormat {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum Precision {
     /// Fixed precision measured in binary bits.
+    ///
+    /// libbf supports 2 (`BF_PREC_MIN`) to `2^62 - 2` (`BF_PREC_MAX`) bits;
+    /// larger values are treated as infinite precision.
     Bits(u64),
     /// Fixed precision measured in decimal digits (used with `BigDecimal`).
     Digits(u64),
@@ -123,11 +126,17 @@ pub enum Precision {
 /// `bf_flags_t` in libbf.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ExpBits {
-    /// Maximum exponent range supported by the implementation.
+    /// Maximum exponent width of libbf, 61 bits (`BF_EXP_BITS_MAX`).
     Max,
     /// A specific exponent width in bits (e.g. 11 for binary64).
+    ///
+    /// The valid range is 3 to 61, as in libbf (`BF_EXP_BITS_MIN` to
+    /// `BF_EXP_BITS_MAX`). The exponent range is then the IEEE 754 one:
+    /// `e_max = 2^(bits - 1)` and `e_min = 3 - e_max`. 62 is equivalent to
+    /// [`Extended`](Self::Extended); other values are rejected by a debug
+    /// assertion and clamped to 3..=62 otherwise.
     Bits(u8),
-    /// Extended exponent range (larger than any fixed bit count).
+    /// Extended exponent range (62 bits, `BF_FLAG_EXT_EXP` in libbf).
     Extended,
 }
 

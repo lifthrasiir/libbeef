@@ -3247,7 +3247,14 @@ fn exp_range_from_format(format: &BigFormat) -> (i64, i64) {
     let bits = match format.exp_bits {
         ExpBits::Max => 61,
         ExpBits::Extended => 62,
-        ExpBits::Bits(bits) => i64::from(bits).clamp(1, 62),
+        ExpBits::Bits(bits) => {
+            debug_assert!(
+                (3..=62).contains(&bits),
+                "ExpBits::Bits({bits}) is outside of the valid range 3..=62"
+            );
+            // libbf encodes 62 as `BF_FLAG_EXT_EXP` and does not support the rest.
+            i64::from(bits).clamp(3, 62)
+        }
     };
     let e_range = 1_i64 << (bits - 1);
     (-e_range + 3, e_range)
