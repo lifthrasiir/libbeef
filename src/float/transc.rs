@@ -250,10 +250,8 @@ impl BigFloat {
             return (result, status);
         }
 
-        if self.exp > 0 {
-            if let Some((result, status)) = check_exp_overflow_underflow(self, precision, format) {
-                return (result, status);
-            }
+        if let Some(r) = check_exp_overflow_underflow(self, self, precision, format) {
+            return r;
         }
 
         ziv_rounding(self, precision, format, exp_internal)
@@ -735,34 +733,12 @@ impl BigFloat {
             }
         };
 
-        if let Some(exponent) = rhs.to_signed_int_limbs() {
-            return super::pow_integer_status(self, &exponent, format);
+        let y_emin = rhs.get_exp_min();
+        if self.sign.is_negative() && y_emin < 0 {
+            return (Self::nan(), Status::INVALID_OP);
         }
-
-        if self.sign.is_negative() {
-            let y_emin = rhs.get_exp_min();
-            if y_emin < 0 {
-                return (Self::nan(), Status::INVALID_OP);
-            }
-        }
-
-        if self.cmp_num(&Self::from_i64(1)) == Some(core::cmp::Ordering::Equal) {
-            return Self::from_i64(1).round_status_owned(format);
-        }
-        if self.sign.is_negative()
-            && self.cmp_num(&Self::from_i64(-1)) == Some(core::cmp::Ordering::Equal)
-        {
-            return Self::from_i64(1).round_status_owned(format);
-        }
-
-        let x_abs = self.abs();
-        let r_sign = if self.sign.is_negative() {
-            let y_emin = rhs.get_exp_min();
-            y_emin == 0
-        } else {
-            false
-        };
-
+        // The result is negative iff x < 0 and y is an odd integer.
+        let r_sign = self.sign.is_negative() && y_emin == 0;
         let mut adjusted_format = format;
         if r_sign {
             adjusted_format.rounding = match adjusted_format.rounding {
@@ -772,61 +748,8 @@ impl BigFloat {
             };
         }
 
-        let x_bits = x_abs.exp - x_abs.get_exp_min();
-        // pow(2^b, y) = 2^(b*y), but only when b*y is an integer. Unlike libbf
-        // this point is only reached for non-integer y, so check exactness.
-        // (b*y needs at most 63 fractional bits of y, so 128 bits suffice for
-        // any b*y whose integer part could possibly be a meaningful exponent.)
-        let pow2_exp = if x_bits == 1 {
-            let (e_bf, mul_status) = rhs.mul_i64_status(x_abs.exp - 1, fmt_bits(128));
-            if mul_status.is_empty() {
-                e_bf.to_signed_int_limbs()
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        if let Some(e) = pow2_exp {
-            let magnitude = match e.limbs.as_slice() {
-                [] => 0,
-                [lo] => i64::try_from(*lo).unwrap_or(i64::MAX),
-                _ => i64::MAX,
-            };
-            let e = if e.sign.is_negative() {
-                -magnitude
-            } else {
-                magnitude
-            };
-            let result = Self::from_i64(1);
-            let (mut result, status) = result.mul_exp2(e).round_status_owned(adjusted_format);
-            if r_sign && result.is_finite() && !result.is_zero() {
-                result.sign = Sign::Negative;
-            }
-            return (result, status);
-        }
-
-        // If x = r^(2^n) for the n given by y = k/2^n, then x^y = r^k with an
-        // integer k. The result may then be exact, which the Ziv loop below
-        // cannot detect: it would never converge under directed rounding.
-        if format.rounding != Rounding::Faithful {
-            let y_emin = rhs.get_exp_min();
-            if y_emin < 0 {
-                if let Some(root) = check_exact_power2n(&x_abs, -y_emin) {
-                    let mut k = rhs.clone();
-                    k.exp -= y_emin;
-                    if let Some(k) = k.to_signed_int_limbs() {
-                        return super::pow_integer_status(&root, &k, format);
-                    }
-                }
-            }
-        }
-
-        let rhs_clone = rhs.clone();
-        let (mut result, status) = ziv_rounding(&x_abs, precision, adjusted_format, |a, prec| {
-            pow_generic(a, &rhs_clone, prec)
-        });
-        if r_sign && result.is_finite() && !result.is_zero() {
+        let (mut result, status) = pow_positive(&self.abs(), rhs, precision, adjusted_format);
+        if r_sign && !result.is_nan() {
             result.sign = Sign::Negative;
         }
         (result, status)
@@ -926,6 +849,14 @@ fn fmt_bits(prec: u64) -> BigFormat {
     }
 }
 
+fn fmt_dir(prec: u64, rounding: Rounding) -> BigFormat {
+    BigFormat {
+        precision: Precision::Bits(prec),
+        rounding,
+        ..BigFormat::INTERNAL
+    }
+}
+
 fn fmt_faithful(prec: u64) -> BigFormat {
     BigFormat {
         precision: Precision::Bits(prec),
@@ -945,38 +876,43 @@ fn sat_add(a: i64, b: i64) -> i64 {
     a.saturating_add(b)
 }
 
+/// Crude overflow and underflow tests for `exp(a)` with `a_low <= a <= a_high`.
+/// Corresponds to `check_exp_underflow_overflow` in libbf.
 fn check_exp_overflow_underflow(
-    a: &BigFloat,
+    a_low: &BigFloat,
+    a_high: &BigFloat,
     precision: u64,
     format: BigFormat,
 ) -> Option<(BigFloat, Status)> {
-    let exp_bits = match format.exp_bits {
-        crate::format::ExpBits::Bits(b) => b as u64,
-        crate::format::ExpBits::Max => return None,
-        crate::format::ExpBits::Extended => return None,
-    };
-    let e_max = 1_i64 << (exp_bits - 1);
-    let e_min = -e_max + 3;
-
-    let log2 = cached_log2(64);
-
-    let upper = log2.mul_u64(e_max as u64, fmt_bits(64));
-    if a.cmp_num(&upper) == Some(core::cmp::Ordering::Greater) {
-        let result = BigFloat::infinity(Sign::Positive);
-        return Some((result, Status::OVERFLOW | Status::INEXACT));
+    if a_high.exp <= 0 {
+        return None;
     }
-
-    let e_min_sub = if format.subnormal {
-        e_min - precision as i64 + 1
+    let (e_min, e_max) = super::exp_range_from_format(&format);
+    let e_min = if format.subnormal {
+        e_min.saturating_sub(precision as i64 - 1)
     } else {
         e_min
     };
-    let lower = log2.mul_i64(e_min_sub - 2, fmt_bits(64));
-    if a.cmp_num(&lower) == Some(core::cmp::Ordering::Less) {
-        let rnd_mode = format.rounding;
-        let result = if rnd_mode == Rounding::TowardPositive {
+    // `cached_log2(128)` is accurate enough for directed rounding to 64 bits
+    // to give valid bounds.
+    let log2 = cached_log2(128);
+
+    // a_low > e_max * log(2) implies exp(a) > 2^e_max.
+    let upper = log2.mul_i64(e_max, fmt_dir(64, Rounding::TowardPositive));
+    if a_low.cmp_num(&upper) == Some(core::cmp::Ordering::Greater) {
+        return Some(BigFloat::from_i64(1).set_overflow(precision, format));
+    }
+
+    // a_high < (e_min - 2) * log(2) implies exp(a) < 2^(e_min - 2).
+    let lower = log2.mul_i64(
+        e_min.saturating_sub(2),
+        fmt_dir(64, Rounding::TowardNegative),
+    );
+    if a_high.cmp_num(&lower) == Some(core::cmp::Ordering::Less) {
+        let result = if format.rounding == Rounding::TowardPositive {
+            // The smallest positive value.
             let mut r = BigFloat::from_i64(1);
-            r.exp = e_min_sub;
+            r.exp = e_min;
             r
         } else {
             BigFloat::zero(Sign::Positive)
@@ -985,6 +921,133 @@ fn check_exp_overflow_underflow(
     }
 
     None
+}
+
+/// Computes `x^y` for finite `x > 0` and finite non-zero `y` at a finite
+/// precision. Corresponds to the body of `bf_pow` in libbf after the sign of
+/// the result has been determined.
+fn pow_positive(
+    x: &BigFloat,
+    y: &BigFloat,
+    precision: u64,
+    format: BigFormat,
+) -> (BigFloat, Status) {
+    let one = BigFloat::from_i64(1);
+    if x.cmp_abs(&one) == core::cmp::Ordering::Equal {
+        return one.round_status_owned(format);
+    }
+
+    // Crude overflow and underflow tests from bounds of y*log(x).
+    let log_lo = x.log(fmt_dir(64, Rounding::TowardNegative));
+    let log_hi = x.log(fmt_dir(64, Rounding::TowardPositive));
+    let (lo, hi) = if y.sign.is_negative() {
+        (log_hi, log_lo)
+    } else {
+        (log_lo, log_hi)
+    };
+    let lo = lo.mul(y, fmt_dir(64, Rounding::TowardNegative));
+    let hi = hi.mul(y, fmt_dir(64, Rounding::TowardPositive));
+    if let Some(r) = check_exp_overflow_underflow(&lo, &hi, precision, format) {
+        return r;
+    }
+
+    let y_emin = y.get_exp_min();
+    if y_emin >= 0 {
+        return pow_int_exponent(x, y, precision, format);
+    }
+
+    // pow(2^b, y) = 2^(b*y), but only when b*y is an integer. libbf reaches
+    // this case through `check_exact_power2n` below.
+    // (b*y needs at most 63 fractional bits of y, so 128 bits suffice for
+    // any b*y whose integer part could possibly be a meaningful exponent.)
+    if x.exp - x.get_exp_min() == 1 {
+        let (e, mul_status) = y.mul_i64_status(x.exp - 1, fmt_bits(128));
+        if mul_status.is_empty() && e.get_exp_min() >= 0 {
+            return pow2_int(&e, format);
+        }
+    }
+
+    // If x = r^(2^n) for the n given by y = k/2^n, then x^y = r^k with an
+    // integer k. The result may then be exact, which the Ziv loop below
+    // cannot detect: it would never converge under directed rounding.
+    if format.rounding != Rounding::Faithful {
+        if let Some(root) = check_exact_power2n(x, -y_emin) {
+            let mut k = y.clone();
+            k.exp -= y_emin;
+            return pow_int_exponent(&root, &k, precision, format);
+        }
+    }
+
+    ziv_rounding(x, precision, format, |a, prec| pow_generic(a, y, prec))
+}
+
+/// Returns `2^e` rounded to `format`, for an integer `e`.
+fn pow2_int(e: &BigFloat, format: BigFormat) -> (BigFloat, Status) {
+    // Out-of-range exponents saturate, and then overflow or underflow.
+    let e = e.get_int64().unwrap_or(if e.sign.is_negative() {
+        i64::MIN / 2
+    } else {
+        i64::MAX / 2
+    });
+    BigFloat::from_i64(1).mul_exp2(e).round_status_owned(format)
+}
+
+/// `x^y` for finite `x > 0`, `x != 1` and an integer `y`, at a finite
+/// precision. Corresponds to the `int_pow` part of `bf_pow` in libbf.
+fn pow_int_exponent(
+    x: &BigFloat,
+    y: &BigFloat,
+    precision: u64,
+    format: BigFormat,
+) -> (BigFloat, Status) {
+    let x_bits = x.exp - x.get_exp_min();
+    if x_bits == 1 {
+        // pow(2^b, y) = 2^(b*y)
+        let e = y.mul_i64(x.exp - 1, fmt_dir(64, Rounding::TowardZero));
+        return pow2_int(&e, format);
+    }
+    let can_be_exact = if y.exp <= 31 {
+        // Small enough power: use exponentiation in all cases.
+        true
+    } else if y.sign.is_negative() || format.rounding == Rounding::Faithful {
+        false
+    } else {
+        // If x = m*2^b with m odd, x^y needs at least floor_log2(m)*y bits.
+        let e = y.mul_i64(x_bits - 1, fmt_dir(64, Rounding::TowardZero));
+        e.get_uint64().is_some_and(|e| e <= precision)
+    };
+    if can_be_exact {
+        ziv_rounding(x, precision, format, |a, prec| pow_int(a, y, prec))
+    } else {
+        ziv_rounding(x, precision, format, |a, prec| pow_generic(a, y, prec))
+    }
+}
+
+/// `x^y` by repeated squaring for an integer `y` fitting in 64 bits, at a
+/// precision suitable for Ziv rounding. Corresponds to `bf_pow_int` in libbf.
+fn pow_int(x: &BigFloat, y: &BigFloat, prec: u64) -> (BigFloat, Status) {
+    let y1 = y.abs().get_uint64().unwrap_or(u64::MAX);
+    // XXX (from libbf): proof for the added precision
+    let ceil_log2_y1 = u64::from(64 - (y1 - 1).leading_zeros());
+    let fmt1 = fmt_bits(prec + ceil_log2_y1 * 2 + 8);
+    let mut status = Status::empty();
+    let mut r = x.clone();
+    for i in (0..63 - y1.leading_zeros()).rev() {
+        let (t, st) = r.mul_status(&r, fmt1);
+        r = t;
+        status |= st;
+        if (y1 >> i) & 1 != 0 {
+            let (t, st) = r.mul_status(x, fmt1);
+            r = t;
+            status |= st;
+        }
+    }
+    if y.sign.is_negative() {
+        let (t, st) = BigFloat::from_i64(1).div_status(&r, fmt1);
+        r = t;
+        status |= st;
+    }
+    (r, status)
 }
 
 /// Returns `r` such that `x = r^(2^n)` exactly, if there is one.
