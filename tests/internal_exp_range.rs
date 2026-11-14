@@ -16,8 +16,11 @@ fn fmt(bits: u64) -> BigFormat {
 }
 
 fn inf() -> BigFormat {
+    // Infinite precision still honors the exponent range of the format (as
+    // libbf does), so the test operands need a wide range.
     BigFormat {
         precision: Precision::Infinite,
+        exp_bits: libbeef::format::ExpBits::Max,
         ..BigFormat::default()
     }
 }

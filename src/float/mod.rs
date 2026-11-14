@@ -14,6 +14,7 @@ use core::ops::{
 };
 
 use crate::format::Precision;
+use crate::format::BF_PREC_INF;
 use crate::format::{BigFormat, Rounding, StaticFormat};
 use crate::parse::{ParseFloatError, ParseOptions};
 use crate::status::Status;
@@ -2001,10 +2002,9 @@ impl BigFloat {
 
     fn round_finite_to_format_mut(&mut self, format: BigFormat) -> Status {
         let prec1 = match format.precision {
-            Precision::Infinite => {
-                remove_low_zero_limbs(&mut self.limbs);
-                return Status::empty();
-            }
+            // Infinite precision still goes through the range checks (and the
+            // INEXACT flag of faithful rounding), as `BF_PREC_INF` does in libbf.
+            Precision::Infinite => BF_PREC_INF,
             Precision::Bits(bits) => bits,
             Precision::Digits(digits) => {
                 remove_low_zero_limbs(&mut self.limbs);
@@ -2026,7 +2026,10 @@ impl BigFloat {
 
         let (e_min, e_max) = exp_range_from_format(&format);
 
-        let prec = if format.radix_point_precision {
+        let infinite = matches!(format.precision, Precision::Infinite);
+        let prec = if infinite {
+            prec1_i64
+        } else if format.radix_point_precision {
             prec1_i64.saturating_add(self.exp)
         } else if self.exp < e_min && format.subnormal {
             prec1_i64 - (e_min - self.exp)

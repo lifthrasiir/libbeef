@@ -28,6 +28,12 @@ pub struct BigFormat {
     pub radix_point_precision: bool,
 }
 
+/// libbf's `BF_PREC_MAX`: the largest finite precision.
+pub(crate) const BF_PREC_MAX: u64 = (1 << 62) - 2;
+
+/// libbf's `BF_PREC_INF`: the precision value that stands for infinite precision.
+pub(crate) const BF_PREC_INF: u64 = BF_PREC_MAX + 1;
+
 impl BigFormat {
     /// IEEE 754 binary64 (double-precision) format: 53-bit significand,
     /// 11-bit exponent, round-to-nearest-even, subnormals enabled.

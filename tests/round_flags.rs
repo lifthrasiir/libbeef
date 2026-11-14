@@ -4,6 +4,7 @@
 use libbeef::format::ExpBits;
 use libbeef::{BigFloat, BigFormat, Precision, Rounding, Sign, Status};
 
+const OF: Status = Status::from_bits_retain(0x14);
 const UF: Status = Status::from_bits_retain(0x18);
 
 fn fmt(prec: Precision, rounding: Rounding, e: u8, subnormal: bool) -> BigFormat {
@@ -24,6 +25,12 @@ fn val(exp: i64, limb: u64) -> BigFloat {
 #[track_caller]
 fn check_zero(r: &(BigFloat, Status), status: Status) {
     assert!(r.0.is_zero() && !r.0.sign().is_negative(), "{:?}", r.0);
+    assert_eq!(r.1, status);
+}
+
+#[track_caller]
+fn check_inf(r: &(BigFloat, Status), status: Status) {
+    assert!(r.0.is_infinite() && !r.0.sign().is_negative(), "{:?}", r.0);
     assert_eq!(r.1, status);
 }
 
@@ -98,4 +105,19 @@ fn a4_faithful_rounding_always_reports_inexact() {
         0xC000_0000_0000_0000,
         Status::INEXACT,
     );
+}
+
+#[test]
+fn a5_infinite_precision_checks_the_range() {
+    let f = fmt(Precision::Infinite, Rounding::NearestEven, 11, false);
+    // 2^1023 + 2^1023 overflows, 2^-1101 underflows.
+    let a = val(1024, 1 << 63);
+    check_inf(&a.add_status(&a, f), OF);
+    check_zero(&val(-1100, 1 << 63).round_status(f), UF);
+    // Within range, faithful rounding still reports INEXACT.
+    let f = fmt(Precision::Infinite, Rounding::Faithful, 11, false);
+    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::INEXACT);
+    // The rounded result of an exact value is unchanged.
+    let f = fmt(Precision::Infinite, Rounding::NearestEven, 11, false);
+    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::empty());
 }
