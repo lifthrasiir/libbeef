@@ -179,6 +179,10 @@ fn bf_integer_to_radix_rec(
         ..BigFormat::INTERNAL
     };
 
+    if a.is_zero() {
+        out[..n as usize].fill(0);
+        return;
+    }
     if n == 1 {
         out[0] = get_bits_from_bf(a, a.limbs().len() as i64 * 64 - a.raw_exp());
         return;

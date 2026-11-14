@@ -185,7 +185,13 @@ fn get_int64_is_exact_beyond_f64_mantissa() {
     }
     // Out of range.
     assert_eq!(pow2(63).get_int64(), None);
-    assert_eq!(pow2(63).add(&BigFloat::from_i64(1), exact).neg().get_int64(), None);
+    assert_eq!(
+        pow2(63)
+            .add(&BigFloat::from_i64(1), exact)
+            .neg()
+            .get_int64(),
+        None
+    );
     assert_eq!(pow2(10_000).get_int64(), None);
     assert_eq!(pow2(10_000).get_uint64(), None);
     // Not an integer, even though the integer part does not fit in f64.
@@ -193,4 +199,66 @@ fn get_int64_is_exact_beyond_f64_mantissa() {
     assert_eq!(pow2(60).add(&half, exact).get_int64(), None);
     assert_eq!(half.get_int64(), None);
     assert_eq!(BigFloat::from_f64(-2.5).get_int64(), None);
+}
+
+#[test]
+fn comparisons_order_multi_limb_mantissas_from_the_top() {
+    use core::cmp::Ordering::{Greater, Less};
+    let exact = libbeef::BigFormat {
+        precision: libbeef::Precision::Infinite,
+        ..libbeef::BigFormat::BINARY128
+    };
+    let pow2 = |e: i64| BigFloat::from_i64(1).mul_exp2(e);
+    // Same exponent and two limbs each; `a` has the larger low limb but the
+    // smaller high limb.
+    let a = pow2(100).add(&BigFloat::from_i64(3), exact);
+    let b = pow2(100)
+        .add(&pow2(99), exact)
+        .add(&BigFloat::from_i64(1), exact);
+    assert_eq!(a.raw_exp(), b.raw_exp());
+    assert_eq!(a.limbs().len(), 2);
+    assert_eq!(b.limbs().len(), 2);
+
+    assert_eq!(a.cmp_abs(&b), Less);
+    assert_eq!(a.cmp_num(&b), Some(Less));
+    assert!(a < b);
+    assert_eq!(a.cmp_total(&b), Less);
+    assert_eq!(a.neg().cmp_num(&b.neg()), Some(Greater));
+    assert_eq!(a.neg().cmp_total(&b.neg()), Greater);
+
+    // Total order puts every negative value below every positive one,
+    // regardless of exponent.
+    let neg_big = BigFloat::from_i64(-1000);
+    let pos_small = BigFloat::from_f64(0.5);
+    assert_eq!(neg_big.cmp_total(&pos_small), Less);
+    assert_eq!(pos_small.cmp_total(&neg_big), Greater);
+    assert_eq!(
+        BigFloat::zero(Sign::Negative).cmp_total(&BigFloat::new()),
+        Less
+    );
+    assert_eq!(
+        BigFloat::nan().cmp_total(&BigFloat::infinity(Sign::Positive)),
+        Greater
+    );
+}
+
+#[test]
+fn to_string_radix_large_digit_counts() {
+    // Exercises the multi-limb radix conversion, where the remainder must be
+    // reduced below the radix power using a correct magnitude comparison.
+    let v = BigFloat::parse_decimal_integer("7920784407908279816464686391409708666910").unwrap();
+    assert_eq!(
+        v.to_string_radix(10, 40, libbeef::Rounding::TowardZero, false)
+            .unwrap(),
+        "7920784407908279816464686391409708666910"
+    );
+    // A zero radix limb in the middle.
+    let w =
+        BigFloat::parse_decimal_integer("10000000000000000000000000000000000000000000000000000")
+            .unwrap();
+    assert_eq!(
+        w.to_string_radix(10, 53, libbeef::Rounding::TowardZero, false)
+            .unwrap(),
+        "10000000000000000000000000000000000000000000000000000"
+    );
 }

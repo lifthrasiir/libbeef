@@ -1779,10 +1779,18 @@ impl BigFloat {
     /// Total ordering comparison that orders all values including NaN.
     /// Corresponds to `bf_cmp_full` in libbf.
     pub fn cmp_total(&self, rhs: &Self) -> Ordering {
-        self.exp
-            .cmp(&rhs.exp)
-            .then_with(|| self.sign.is_negative().cmp(&rhs.sign.is_negative()))
-            .then_with(|| self.limbs.cmp(&rhs.limbs))
+        match (self.is_nan(), rhs.is_nan()) {
+            (true, true) => return Ordering::Equal,
+            (true, false) => return Ordering::Greater,
+            (false, true) => return Ordering::Less,
+            (false, false) => {}
+        }
+        match (self.sign.is_negative(), rhs.sign.is_negative()) {
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            (false, false) => bf_cmpu(self, rhs),
+            (true, true) => bf_cmpu(self, rhs).reverse(),
+        }
     }
 
     /// Alias for [`cmp_total`](Self::cmp_total).
@@ -1837,10 +1845,7 @@ impl BigFloat {
             (FpCategory::Zero, FpCategory::Zero) => Ordering::Equal,
             (FpCategory::Zero, _) => Ordering::Less,
             (_, FpCategory::Zero) => Ordering::Greater,
-            (FpCategory::Normal, FpCategory::Normal) => self
-                .exp
-                .cmp(&rhs.exp)
-                .then_with(|| self.limbs.cmp(&rhs.limbs)),
+            (FpCategory::Normal, FpCategory::Normal) => bf_cmpu(self, rhs),
         }
     }
 
