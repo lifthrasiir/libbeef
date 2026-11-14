@@ -43,6 +43,8 @@ pub mod decimal;
 pub mod float;
 /// Floating-point format descriptors (precision, rounding, exponent range).
 pub mod format;
+/// Number-to-string formatting options.
+pub mod ftoa;
 /// String-to-number parsing utilities.
 pub mod parse;
 /// Arithmetic status flags (inexact, overflow, etc.).

@@ -1,9 +1,10 @@
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::str::FromStr;
 
-use crate::format::{mul_log2_radix, BigFormat, Precision, Rounding};
+use crate::format::{mul_log2_radix, BigFormat, Precision, Rounding, BF_PREC_INF};
+use crate::ftoa::{FormatStyle, ToStringOptions};
 use crate::parse::{ParseFloatError, ParseOptions};
 use crate::status::Status;
 
@@ -663,6 +664,35 @@ impl BigFloat {
         Ok(val)
     }
 
+    /// Converts this number to a string as described by `options`.
+    /// Corresponds to `bf_ftoa` in libbf.
+    ///
+    /// Returns `None` if the radix is out of range, or if a free format is
+    /// requested with a precision that is infinite (or too large) while the
+    /// radix is not a power of two.
+    ///
+    /// ```
+    /// use libbeef::ftoa::{FormatStyle, ToStringOptions};
+    /// use libbeef::BigFloat;
+    ///
+    /// let x = BigFloat::from_f64(1.5e300);
+    /// let shortest = ToStringOptions::default();
+    /// assert_eq!(x.to_string_with(shortest).unwrap(), "1.5e300");
+    ///
+    /// let js = ToStringOptions { js_quirks: true, ..shortest };
+    /// assert_eq!(x.to_string_with(js).unwrap(), "1.5e+300");
+    ///
+    /// let frac = ToStringOptions {
+    ///     precision: 2,
+    ///     style: FormatStyle::Fractional,
+    ///     ..shortest
+    /// };
+    /// assert_eq!(BigFloat::from_f64(2.0 / 3.0).to_string_with(frac).unwrap(), "0.67");
+    /// ```
+    pub fn to_string_with(&self, options: ToStringOptions) -> Option<String> {
+        bf_ftoa_internal(self, &options)
+    }
+
     /// Converts this number to a string in the given radix (2..=36) with the
     /// specified number of significant digits. Corresponds to `bf_ftoa` in libbf.
     ///
@@ -686,10 +716,15 @@ impl BigFloat {
         rounding: Rounding,
         force_exp: bool,
     ) -> Option<String> {
-        if !(2..=36).contains(&radix) {
-            return None;
-        }
-        bf_ftoa_internal(self, radix, n_digits, rounding, force_exp)
+        self.to_string_with(ToStringOptions {
+            radix,
+            precision: n_digits,
+            rounding,
+            style: FormatStyle::Fixed,
+            force_exponent: force_exp,
+            add_prefix: false,
+            js_quirks: false,
+        })
     }
 }
 
@@ -1064,80 +1099,226 @@ fn parse_power_of_two(
     Ok((result, status, pos))
 }
 
-fn bf_ftoa_internal(
-    a: &BigFloat,
-    radix: u8,
-    prec: u64,
-    rounding: Rounding,
-    force_exp: bool,
-) -> Option<String> {
-    let mut out = String::new();
+/// Port of libbf's `bf_ftoa_internal` for binary numbers.
+fn bf_ftoa_internal(a: &BigFloat, options: &ToStringOptions) -> Option<String> {
+    let radix = options.radix;
+    let prec = options.precision;
+    let rounding = options.rounding;
+    let fmt = options.style;
+    if !(2..=36).contains(&radix) || prec > BF_PREC_INF {
+        return None;
+    }
 
+    let mut out = String::new();
     if a.is_nan() {
         return Some("NaN".into());
     }
-
     if a.sign().is_negative() {
         out.push('-');
     }
-
     if a.is_infinite() {
-        out.push_str("Inf");
+        out.push_str(if options.js_quirks { "Infinity" } else { "Inf" });
         return Some(out);
     }
 
-    let n_digits = prec;
-    let n_max = n_digits as i64;
+    let radix_bits = if radix.is_power_of_two() {
+        radix.trailing_zeros() as i64
+    } else {
+        0
+    };
+    let prefix = |out: &mut String| {
+        if options.add_prefix {
+            match radix {
+                16 => out.push_str("0x"),
+                8 => out.push_str("0o"),
+                2 => out.push_str("0b"),
+                _ => {}
+            }
+        }
+    };
+    // The exponent of zero in libbf (`BF_EXP_ZERO`).
+    let a_expn = if a.is_zero() { i64::MIN } else { a.raw_exp() };
     let a1;
-    let n;
-    if radix.is_power_of_two() {
-        let radix_bits = radix.trailing_zeros() as i64;
-        let mut r = a.clone();
-        if !r.is_zero() {
-            // Align to the radix point.
-            let prec_bits = prec as i64 * radix_bits - smod(-r.raw_exp(), radix_bits) as i64;
+    let n_digits: i64;
+    let n_max: i64;
+    let mut n: i64;
+
+    if fmt == FormatStyle::Fractional {
+        if radix_bits != 0 {
             let format = BigFormat {
-                precision: Precision::Bits(prec_bits.max(0) as u64),
+                precision: Precision::Bits(prec.saturating_mul(radix_bits as u64)),
                 rounding,
+                radix_point_precision: true,
                 ..BigFormat::INTERNAL
             };
-            r = r.round_status_owned(format).0;
+            let r = a.round_status(format).0;
+            prefix(&mut out);
+            if r.is_zero() {
+                out.push('0');
+                if prec > 0 {
+                    out.push('.');
+                    for _ in 0..prec {
+                        out.push('0');
+                    }
+                }
+            } else {
+                let n = ceil_div_i64(r.raw_exp(), radix_bits);
+                let n_digits = prec as i64 + n;
+                if n <= 0 {
+                    out.push_str("0.");
+                    for _ in 0..(-n) {
+                        out.push('0');
+                    }
+                    if n_digits > 0 {
+                        output_digits(&mut out, &r, radix, n_digits as u64, n_digits as u64);
+                    }
+                } else {
+                    output_digits(&mut out, &r, radix, n_digits as u64, n as u64);
+                }
+            }
+        } else {
+            let abs = a.abs();
+            // One more digit for the rounding.
+            let n = 1 + mul_log2_radix(abs_exp_or_zero(&abs), radix, true, true).unwrap_or(0);
+            let n_digits = n + prec as i64;
+            let (r, _) = bf_convert_to_radix(&abs, radix, n_digits as u64, rounding, true, n);
+            let start = out.len();
+            output_digits(&mut out, &r, radix, n_digits as u64, n as u64);
+            // Remove the leading zeros because one more digit was allocated.
+            let bytes = out.as_bytes();
+            let mut pos = start;
+            while pos + 1 < bytes.len() && bytes[pos] == b'0' && bytes[pos + 1] != b'.' {
+                pos += 1;
+            }
+            out.replace_range(start..pos, "");
         }
+        return Some(out);
+    }
+
+    if radix_bits != 0 {
+        let mut r = a.clone();
+        let nd;
+        if fmt == FormatStyle::Fixed {
+            nd = prec as i64;
+            n_max = nd;
+            if !r.is_zero() {
+                // Align to the radix point.
+                let prec_bits = (prec as i64)
+                    .saturating_mul(radix_bits)
+                    .saturating_sub(smod(-a_expn, radix_bits) as i64);
+                let format = BigFormat {
+                    precision: Precision::Bits(prec_bits.max(0) as u64),
+                    rounding,
+                    ..BigFormat::INTERNAL
+                };
+                r = r.round_status_owned(format).0;
+            }
+        } else {
+            // Position of the digit before the most significant digit in bits.
+            let pos = r.limbs().len() as i64 * 64 + smod(a_expn.wrapping_neg(), radix_bits) as i64;
+            let mut d = ceil_div_i64(pos, radix_bits);
+            // Remove the trailing zero digits.
+            let digit_mask = (1_u64 << radix_bits) - 1;
+            while d > 1 && get_bits_from_bf(&r, pos - d * radix_bits) & digit_mask == 0 {
+                d -= 1;
+            }
+            nd = d;
+            n_max = d + 4;
+        }
+        n_digits = nd;
         n = if r.is_zero() {
-            1
+            0
         } else {
             ceil_div_i64(r.raw_exp(), radix_bits)
         };
         a1 = r;
     } else {
-        let (r, nn) = bf_convert_to_radix(&a.abs(), radix, n_digits, rounding, false, 0);
-        n = if r.is_zero() { 1 } else { nn };
+        let abs = a.abs();
+        let mut nd;
+        if fmt == FormatStyle::Fixed {
+            nd = prec as i64;
+            n_max = nd;
+        } else {
+            if prec >= BF_PREC_INF {
+                return None;
+            }
+            nd = 1 + mul_log2_radix(prec as i64, radix, true, true).unwrap_or(0);
+            // The same rule as JS, i.e. n_max = 21 for 64 bit floats in base 10.
+            n_max = nd + 4;
+            if fmt == FormatStyle::FreeMin {
+                // Find the minimum number of digits by dichotomy.
+                let mut n_digits_max = nd;
+                let mut n_digits_min = 1_i64;
+                let back_format = BigFormat {
+                    precision: Precision::Bits(prec),
+                    rounding: Rounding::NearestEven,
+                    ..BigFormat::INTERNAL
+                };
+                while n_digits_min < n_digits_max {
+                    nd = (n_digits_min + n_digits_max) / 2;
+                    let (r, nn) = bf_convert_to_radix(&abs, radix, nd as u64, rounding, false, 0);
+                    // Convert back to a number and compare.
+                    let (b, _) = bf_mul_pow_radix(&r, radix, nn - nd, prec, back_format);
+                    if b.cmp_abs(&abs) == core::cmp::Ordering::Equal {
+                        n_digits_max = nd;
+                    } else {
+                        n_digits_min = nd + 1;
+                    }
+                }
+                nd = n_digits_max;
+            }
+        }
+        let (r, nn) = bf_convert_to_radix(&abs, radix, nd as u64, rounding, false, 0);
+        n_digits = nd;
+        n = nn;
         a1 = r;
     }
 
-    if force_exp || n <= -6 || n > n_max {
-        output_digits(&mut out, &a1, radix, n_digits, 1);
-        if radix.is_power_of_two() && radix <= 16 {
-            out.push('p');
-            out.push_str(&((n - 1) * radix.trailing_zeros() as i64).to_string());
+    if a1.is_zero() && fmt != FormatStyle::Fixed && !options.force_exponent {
+        out.push('0');
+        return Some(out);
+    }
+
+    prefix(&mut out);
+    if a1.is_zero() {
+        n = 1;
+    }
+    if options.force_exponent || n <= -6 || n > n_max {
+        // Exponential notation.
+        output_digits(&mut out, &a1, radix, n_digits as u64, 1);
+        let (marker, exp) = if radix_bits != 0 && radix <= 16 {
+            ('p', (n - 1) * radix_bits)
         } else {
-            out.push(if radix <= 10 { 'e' } else { '@' });
-            out.push_str(&(n - 1).to_string());
+            (if radix <= 10 { 'e' } else { '@' }, n - 1)
+        };
+        out.push(marker);
+        if options.js_quirks {
+            out.push_str(&alloc::format!("{exp:+}"));
+        } else {
+            out.push_str(&alloc::format!("{exp}"));
         }
     } else if n <= 0 {
         out.push_str("0.");
         for _ in 0..(-n) {
             out.push('0');
         }
-        output_digits(&mut out, &a1, radix, n_digits, n_digits);
-    } else if n_digits <= n as u64 {
-        output_digits(&mut out, &a1, radix, n_digits, n_digits);
-        for _ in 0..(n as u64 - n_digits) {
+        output_digits(&mut out, &a1, radix, n_digits as u64, n_digits as u64);
+    } else if n_digits <= n {
+        output_digits(&mut out, &a1, radix, n_digits as u64, n_digits as u64);
+        for _ in 0..(n - n_digits) {
             out.push('0');
         }
     } else {
-        output_digits(&mut out, &a1, radix, n_digits, n as u64);
+        output_digits(&mut out, &a1, radix, n_digits as u64, n as u64);
     }
-
     Some(out)
+}
+
+/// The exponent of `a` clamped to be non-negative; zero counts as 0.
+fn abs_exp_or_zero(a: &BigFloat) -> i64 {
+    if a.is_zero() {
+        0
+    } else {
+        a.raw_exp().max(0)
+    }
 }
