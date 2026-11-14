@@ -47,16 +47,31 @@ fn a2_exact_value_below_e_min_without_subnormal_flushes() {
     check_zero(&val(-1099, 1 << 63).round_status(f), UF);
     // With subnormals the exact value stays.
     let f = fmt(Precision::Bits(64), Rounding::NearestEven, 11, true);
-    check_fin(&val(-1030, 1 << 63).round_status(f), -1030, 1 << 63, Status::empty());
+    check_fin(
+        &val(-1030, 1 << 63).round_status(f),
+        -1030,
+        1 << 63,
+        Status::empty(),
+    );
 }
 
 #[test]
 fn a3_nonpositive_precision_reports_underflow_and_inexact() {
     let rint = |v: &BigFloat, rnd| v.rint_status(rnd);
     // rint(0.75) and rint(0.25).
-    check_fin(&rint(&val(0, 0xC000_0000_0000_0000), Rounding::NearestEven), 1, 1 << 63, UF);
+    check_fin(
+        &rint(&val(0, 0xC000_0000_0000_0000), Rounding::NearestEven),
+        1,
+        1 << 63,
+        UF,
+    );
     check_zero(&rint(&val(-1, 1 << 63), Rounding::NearestEven), UF);
-    check_fin(&rint(&val(-1, 1 << 63), Rounding::TowardPositive), 1, 1 << 63, UF);
+    check_fin(
+        &rint(&val(-1, 1 << 63), Rounding::TowardPositive),
+        1,
+        1 << 63,
+        UF,
+    );
     // No underflow once the precision is positive.
     check_fin(
         &rint(&val(2, 0xA000_0000_0000_0000), Rounding::NearestEven),
@@ -81,7 +96,12 @@ fn a3_subnormal_rounding_to_zero_is_inexact() {
 fn a4_faithful_rounding_always_reports_inexact() {
     let f = fmt(Precision::Bits(53), Rounding::Faithful, 11, true);
     // round(1) and round(1 + 2^-100).
-    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::INEXACT);
+    check_fin(
+        &val(1, 1 << 63).round_status(f),
+        1,
+        1 << 63,
+        Status::INEXACT,
+    );
     let x = BigFloat::from_raw(Sign::Positive, 1, vec![1 << 27, 1 << 63]);
     check_fin(&x.round_status(f), 1, 1 << 63, Status::INEXACT);
     // Subnormal range: 2^-1031 is exact, but reported as inexact underflow.
@@ -98,7 +118,12 @@ fn a4_faithful_rounding_always_reports_inexact() {
         check_fin(&x.round_status(f2), exp, limb, Status::INEXACT);
     }
     // rint(0.75) and rint(1.25).
-    check_fin(&val(0, 0xC000_0000_0000_0000).rint_status(Rounding::Faithful), 1, 1 << 63, UF);
+    check_fin(
+        &val(0, 0xC000_0000_0000_0000).rint_status(Rounding::Faithful),
+        1,
+        1 << 63,
+        UF,
+    );
     check_fin(
         &val(2, 0xA000_0000_0000_0000).rint_status(Rounding::Faithful),
         2,
@@ -116,10 +141,20 @@ fn a5_infinite_precision_checks_the_range() {
     check_zero(&val(-1100, 1 << 63).round_status(f), UF);
     // Within range, faithful rounding still reports INEXACT.
     let f = fmt(Precision::Infinite, Rounding::Faithful, 11, false);
-    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::INEXACT);
+    check_fin(
+        &val(1, 1 << 63).round_status(f),
+        1,
+        1 << 63,
+        Status::INEXACT,
+    );
     // The rounded result of an exact value is unchanged.
     let f = fmt(Precision::Infinite, Rounding::NearestEven, 11, false);
-    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::empty());
+    check_fin(
+        &val(1, 1 << 63).round_status(f),
+        1,
+        1 << 63,
+        Status::empty(),
+    );
 }
 
 #[test]
@@ -130,4 +165,42 @@ fn a6_can_round_faithful_zero() {
     assert!(!zero.can_round(53, Rounding::NearestEven, 100));
     assert!(!BigFloat::nan().can_round(53, Rounding::Faithful, 100));
     assert!(!BigFloat::infinity(Sign::Positive).can_round(53, Rounding::Faithful, 100));
+}
+
+#[test]
+fn a7_mul_exp2_clamps_and_rounds() {
+    let one = BigFloat::from_u64(1);
+    let inf = BigFormat {
+        precision: Precision::Infinite,
+        rounding: Rounding::TowardZero,
+        exp_bits: ExpBits::Max,
+        subnormal: false,
+        radix_point_precision: false,
+    };
+    let f = fmt(Precision::Bits(53), Rounding::NearestEven, 61, false);
+    for f in [f, inf] {
+        check_inf(&one.mul_exp2_status(i64::MAX, f), OF);
+        check_zero(&one.mul_exp2_status(i64::MIN, f), UF);
+    }
+    check_inf(&(one.mul_exp2(i64::MAX), OF), OF);
+    check_zero(&(one.mul_exp2(i64::MIN), UF), UF);
+    let m = one.mul_exp2_status(1 << 60, f);
+    check_inf(&m, OF);
+    let m = one.mul_exp2_status((1 << 60) - 1, f);
+    check_fin(&m, 1 << 60, 1 << 63, Status::empty());
+    // The extended exponent range reaches 2^61.
+    let ext = BigFormat {
+        exp_bits: ExpBits::Extended,
+        ..f
+    };
+    check_fin(
+        &one.mul_exp2_status(1 << 60, ext),
+        (1 << 60) + 1,
+        1 << 63,
+        Status::empty(),
+    );
+    // Zero, infinity and NaN are unchanged.
+    assert!(BigFloat::from_u64(0).mul_exp2(5).is_zero());
+    assert!(BigFloat::infinity(Sign::Negative).mul_exp2(5).is_infinite());
+    assert!(BigFloat::nan().mul_exp2(5).is_nan());
 }

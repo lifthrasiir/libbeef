@@ -493,8 +493,8 @@ impl BigFloat {
                 (exp_val - frac_digits) * radix_bits as i64
             };
             let mut result = int_value;
-            if total_exp != 0 {
-                result = result.mul_exp2(total_exp);
+            if total_exp != 0 && !result.is_zero() {
+                result.exp = result.exp.saturating_add(total_exp);
             }
             let (rounded, status) = result.round_status_owned(options.format);
             return Ok((rounded, status, pos));
@@ -963,11 +963,20 @@ impl BigFloat {
         self.sign = -self.sign;
     }
 
-    /// Multiplies this value by 2^e in place.
+    /// Multiplies this value by 2^e in place, with infinite precision and the
+    /// maximal exponent range. See [`mul_exp2`](Self::mul_exp2).
     pub fn mul_exp2_mut(&mut self, e: i64) {
-        if self.is_finite() && !self.is_zero() {
-            self.exp = self.exp.saturating_add(e);
+        self.mul_exp2_round_mut(e, BigFormat::INTERNAL);
+    }
+
+    /// `bf_mul_2exp`: clamps `e`, adjusts the exponent and rounds to `format`.
+    pub(crate) fn mul_exp2_round_mut(&mut self, e: i64, format: BigFormat) -> Status {
+        if !self.is_finite() || self.is_zero() {
+            return Status::empty();
         }
+        const E_MAX: i64 = (1 << 62) - 1;
+        self.exp = self.exp.saturating_add(e.clamp(-E_MAX, E_MAX));
+        self.round_finite_to_format_mut(format)
     }
 
     /// Sets this value to the given `i64`, reusing the existing allocation.
@@ -1469,7 +1478,9 @@ impl BigFloat {
             self.exp = RAW_EXP_ZERO;
             return Status::empty();
         }
-        self.exp = self.exp.wrapping_sub(((old_len - self.limbs.len()) as i64) * 64);
+        self.exp = self
+            .exp
+            .wrapping_sub(((old_len - self.limbs.len()) as i64) * 64);
         let l = self.limbs.len();
         let top = self.limbs[l - 1];
         let shift = top.leading_zeros();

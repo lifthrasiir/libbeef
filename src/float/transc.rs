@@ -73,9 +73,12 @@ fn isqrt(a: u64) -> u64 {
 }
 
 impl BigFloat {
-    /// Multiplies `self` by 2^e by adjusting the exponent.
+    /// Multiplies `self` by 2^e, with infinite precision and the maximal exponent range.
     ///
-    /// Corresponds to `bf_mul_2exp` in libbf.
+    /// Corresponds to `bf_mul_2exp` in libbf called with `BF_PREC_INF` and the
+    /// default exponent width: `e` is clamped to +-(2^62 - 1), and a result
+    /// beyond the exponent range overflows to infinity or underflows to zero.
+    /// Use [`mul_exp2_status`](Self::mul_exp2_status) to choose the format.
     ///
     /// ```
     /// use libbeef::{BigFloat, BigFormat};
@@ -83,14 +86,30 @@ impl BigFloat {
     /// let y = x.mul_exp2(4); // 3 * 16 = 48
     /// let f = y.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 48.0);
+    /// assert!(x.mul_exp2(i64::MAX).is_infinite());
+    /// assert!(x.mul_exp2(i64::MIN).is_zero());
     /// ```
     pub fn mul_exp2(&self, e: i64) -> Self {
-        if !self.is_finite() || self.is_zero() {
-            return self.clone();
-        }
+        self.mul_exp2_status(e, BigFormat::INTERNAL).0
+    }
+
+    /// Multiplies `self` by 2^e, then rounds to `format`.
+    ///
+    /// Corresponds to `bf_mul_2exp` in libbf: `e` is clamped to +-(2^62 - 1)
+    /// before the exponent is adjusted, so that a huge `e` overflows to
+    /// infinity or underflows to zero (with the corresponding status flags)
+    /// instead of producing a malformed value.
+    ///
+    /// ```
+    /// use libbeef::{BigFloat, BigFormat, Status};
+    /// let (r, st) = BigFloat::from_i64(1).mul_exp2_status(i64::MAX, BigFormat::BINARY64);
+    /// assert!(r.is_infinite());
+    /// assert_eq!(st, Status::OVERFLOW | Status::INEXACT);
+    /// ```
+    pub fn mul_exp2_status(&self, e: i64, format: BigFormat) -> (Self, Status) {
         let mut r = self.clone();
-        r.exp = r.exp.saturating_add(e);
-        r
+        let status = r.mul_exp2_round_mut(e, format);
+        (r, status)
     }
 
     /// Multiplies `self` by a signed 64-bit integer.
@@ -1007,7 +1026,7 @@ fn pow2_int(e: &BigFloat, format: BigFormat) -> (BigFloat, Status) {
     } else {
         i64::MAX / 2
     });
-    BigFloat::from_i64(1).mul_exp2(e).round_status_owned(format)
+    BigFloat::from_i64(1).mul_exp2_status(e, format)
 }
 
 /// `x^y` for finite `x > 0`, `x != 1` and an integer `y`, at a finite
@@ -1302,7 +1321,8 @@ fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
         r.sqr_assign(fmt_sqr);
     }
 
-    r.mul_exp2_mut(n);
+    // As in libbf, this uses the extended exponent range.
+    r.mul_exp2_round_mut(n, BigFormat::INTERNAL_EXT);
     (r, Status::INEXACT)
 }
 
