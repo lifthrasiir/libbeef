@@ -406,21 +406,27 @@ fn bf_convert_to_radix(
                 ..BigFormat::INTERNAL_EXT
             };
 
-            let pow = bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven).0;
-            let r = if !exp_sign {
-                a.mul(&pow, work_fmt)
+            let (pow, mut ret) =
+                bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven);
+            let (r, st) = if !exp_sign {
+                a.mul_status(&pow, work_fmt)
             } else {
-                a.div(&pow, work_fmt)
+                a.div_status(&pow, work_fmt)
             };
+            ret |= st;
 
-            if r.can_round(r.raw_exp() as u64, rnd_mode, prec) || r.is_zero() {
-                break r.rint(rnd_mode);
+            // If the result is not exact, check that it can be safely rounded
+            // to an integer; otherwise retry with more precision. libbf has no
+            // cap here: the intermediate power of the radix eventually becomes
+            // exact, which makes the quotient exact as well.
+            if ret.contains(Status::INEXACT)
+                && !r.is_zero()
+                && !r.can_round(r.raw_exp() as u64, rnd_mode, prec)
+            {
+                ziv_extra_bits = ziv_extra_bits + ziv_extra_bits / 2;
+                continue;
             }
-
-            ziv_extra_bits = ziv_extra_bits + ziv_extra_bits / 2;
-            if ziv_extra_bits > 100_000 {
-                break r.rint(rnd_mode);
-            }
+            break r.rint(rnd_mode);
         };
 
         if is_fixed_exponent {

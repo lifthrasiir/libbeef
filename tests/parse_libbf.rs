@@ -123,3 +123,23 @@ fn exact_parses_with_directed_rounding() {
         "+100:c9f2c9cd04674800 st=16 n=4"
     );
 }
+
+/// Exact powers of ten under directed rounding. The intermediate power of the
+/// radix needs more bits than any fixed cap on the Ziv loop provides.
+#[test]
+fn ftoa_exact_value_directed_rounding() {
+    let x: BigFloat = "1e50000".parse().unwrap();
+    for r in [
+        Rounding::TowardZero,
+        Rounding::TowardNegative,
+        Rounding::TowardPositive,
+    ] {
+        assert_eq!(x.to_string_radix(10, 1, r, true).unwrap(), "1e50000");
+    }
+    let y: BigFloat = "1e-50000".parse().unwrap();
+    // 10^-50000 is not exactly representable; just check it rounds sensibly.
+    let s = y
+        .to_string_radix(10, 1, Rounding::NearestEven, true)
+        .unwrap();
+    assert_eq!(s, "1e-50000");
+}
