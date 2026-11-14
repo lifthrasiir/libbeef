@@ -133,7 +133,9 @@ pub enum FpCategory {
 }
 
 /// Specifies the quotient rounding mode for division-with-remainder operations.
-/// Corresponds to the `mode` parameter of `bf_divrem` / `bf_remquo` in libbf.
+/// Corresponds to the `rnd_mode` parameter of `bf_divrem` / `bf_remquo` in libbf
+/// (`BF_RNDZ`, `BF_RNDN`, `BF_RNDD`, `BF_RNDU`, `BF_RNDNA`, `BF_RNDA` and
+/// `BF_DIVREM_EUCLIDIAN`).
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum DivRemMode {
     /// Truncate the quotient toward zero (C `%` semantics).
@@ -142,6 +144,12 @@ pub enum DivRemMode {
     NearestEven,
     /// Floor the quotient (Python `%` semantics).
     Floor,
+    /// Round the quotient toward positive infinity.
+    Ceil,
+    /// Round the quotient to the nearest integer, ties away from zero.
+    NearestAway,
+    /// Round the quotient away from zero.
+    AwayFromZero,
     /// Euclidean remainder (remainder is always non-negative).
     Euclidean,
 }
@@ -1283,30 +1291,9 @@ impl BigFloat {
             return (self.clone(), Status::empty());
         }
 
-        if matches!(
-            mode,
-            DivRemMode::TowardZero
-                | DivRemMode::NearestEven
-                | DivRemMode::Floor
-                | DivRemMode::Euclidean
-        ) {
-            if let (Some(a), Some(b)) =
-                (self.to_scaled_signed_limbs(), rhs.to_scaled_signed_limbs())
-            {
-                let remainder = match mode {
-                    DivRemMode::TowardZero => rem_scaled_toward_zero(&a, &b),
-                    DivRemMode::NearestEven => rem_scaled_nearest_even(&a, &b),
-                    DivRemMode::Floor => rem_scaled_floor(&a, &b),
-                    DivRemMode::Euclidean => rem_scaled_euclidean(&a, &b),
-                };
-                return Self::from_scaled_signed_limbs(remainder).round_status_owned(_format);
-            }
-        }
-
-        match (self.to_signed_int_limbs(), rhs.to_signed_int_limbs()) {
+        match (self.to_scaled_signed_limbs(), rhs.to_scaled_signed_limbs()) {
             (Some(a), Some(b)) => {
-                let (_quotient, remainder) = div_rem_signed_ints(&a, &b);
-                (Self::from_signed_int_limbs(remainder), Status::empty())
+                Self::from_scaled_signed_limbs(rem_scaled(&a, &b, mode)).round_status_owned(_format)
             }
             _ => unreachable!("finite BigFloat values are representable as scaled binary limbs"),
         }
@@ -1337,10 +1324,12 @@ impl BigFloat {
         }
 
         let q_sign = self.sign * rhs.sign;
-        let is_rndn = matches!(mode, DivRemMode::NearestEven);
+        let is_rndn = matches!(mode, DivRemMode::NearestEven | DivRemMode::NearestAway);
         let is_ceil = match mode {
-            DivRemMode::TowardZero | DivRemMode::NearestEven => false,
+            DivRemMode::TowardZero | DivRemMode::NearestEven | DivRemMode::NearestAway => false,
             DivRemMode::Floor => q_sign.is_negative(),
+            DivRemMode::Ceil => !q_sign.is_negative(),
+            DivRemMode::AwayFromZero => true,
             DivRemMode::Euclidean => self.sign.is_negative(),
         };
 
@@ -1363,7 +1352,9 @@ impl BigFloat {
                 let cmp = r.cmp_abs(&b_half);
                 // The units bit of `q` (not the lowest bit of its lowest limb).
                 let q_low_bit = q.int_mod_u64() & 1 != 0;
-                if cmp == Ordering::Greater || (cmp == Ordering::Equal && q_low_bit) {
+                if cmp == Ordering::Greater
+                    || (cmp == Ordering::Equal && (mode == DivRemMode::NearestAway || q_low_bit))
+                {
                     q = q.add(&Self::from_i64(1), inf);
                     r = r.sub(&b1, inf);
                 }
@@ -3390,7 +3381,10 @@ fn div_scaled_signed_exact(a: &ScaledSignedInt, b: &ScaledSignedInt) -> Option<S
     })
 }
 
-fn rem_scaled_toward_zero(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSignedInt {
+/// The remainder `a - q * b` where `q` is `a / b` rounded to an integer
+/// according to `mode`, as in `bf_divrem`. The result has the sign of `a` when
+/// it is zero.
+fn rem_scaled(a: &ScaledSignedInt, b: &ScaledSignedInt, mode: DivRemMode) -> ScaledSignedInt {
     if a.limbs.is_empty() || b.limbs.is_empty() {
         return ScaledSignedInt {
             sign: a.sign,
@@ -3408,32 +3402,6 @@ fn rem_scaled_toward_zero(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSig
         b_storage = shift_for_low_exp(&b.limbs, b.low_exp, low_exp);
         &b_storage
     };
-    let (_q, r) = div_rem_abs_limbs_owned(a_limbs, b_limbs);
-    ScaledSignedInt {
-        sign: a.sign,
-        limbs: r,
-        low_exp,
-    }
-}
-
-fn rem_scaled_nearest_even(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSignedInt {
-    if a.limbs.is_empty() || b.limbs.is_empty() {
-        return ScaledSignedInt {
-            sign: a.sign,
-            limbs: Vec::new(),
-            low_exp: 0,
-        };
-    }
-
-    let low_exp = a.low_exp.min(b.low_exp);
-    let a_limbs = shift_for_low_exp(&a.limbs, a.low_exp, low_exp);
-    let b_storage;
-    let b_limbs: &[u64] = if b.low_exp == low_exp {
-        &b.limbs
-    } else {
-        b_storage = shift_for_low_exp(&b.limbs, b.low_exp, low_exp);
-        &b_storage
-    };
     let (q, r) = div_rem_abs_limbs_owned(a_limbs, b_limbs);
     if r.is_empty() {
         return ScaledSignedInt {
@@ -3443,13 +3411,24 @@ fn rem_scaled_nearest_even(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSi
         };
     }
 
-    let mut twice_r = r.clone();
-    shl_limbs(&mut twice_r, 1);
-    let q_is_odd = q.first().is_some_and(|limb| (limb & 1) != 0);
-    let adjust = match cmp_abs_limbs(&twice_r, b_limbs) {
-        Ordering::Greater => true,
-        Ordering::Equal => q_is_odd,
-        Ordering::Less => false,
+    let q_negative = a.sign.is_negative() != b.sign.is_negative();
+    let adjust = match mode {
+        DivRemMode::TowardZero => false,
+        DivRemMode::NearestEven | DivRemMode::NearestAway => {
+            let mut twice_r = r.clone();
+            shl_limbs(&mut twice_r, 1);
+            match cmp_abs_limbs(&twice_r, b_limbs) {
+                Ordering::Greater => true,
+                Ordering::Equal => {
+                    mode == DivRemMode::NearestAway || q.first().is_some_and(|limb| (limb & 1) != 0)
+                }
+                Ordering::Less => false,
+            }
+        }
+        DivRemMode::Floor => q_negative,
+        DivRemMode::Ceil => !q_negative,
+        DivRemMode::AwayFromZero => true,
+        DivRemMode::Euclidean => a.sign.is_negative(),
     };
 
     if adjust {
@@ -3465,27 +3444,6 @@ fn rem_scaled_nearest_even(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSi
             low_exp,
         }
     }
-}
-
-fn rem_scaled_floor(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSignedInt {
-    let remainder = rem_scaled_toward_zero(a, b);
-    if remainder.limbs.is_empty() || a.sign == b.sign {
-        return remainder;
-    }
-    add_scaled_signed(&remainder, b)
-}
-
-fn rem_scaled_euclidean(a: &ScaledSignedInt, b: &ScaledSignedInt) -> ScaledSignedInt {
-    let remainder = rem_scaled_toward_zero(a, b);
-    if remainder.limbs.is_empty() || !remainder.sign.is_negative() {
-        return remainder;
-    }
-    let abs_b = ScaledSignedInt {
-        sign: Sign::Positive,
-        limbs: b.limbs.clone(),
-        low_exp: b.low_exp,
-    };
-    add_scaled_signed(&remainder, &abs_b)
 }
 
 #[allow(dead_code)]

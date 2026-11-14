@@ -62,3 +62,31 @@ fn rem_quo_status_returns_low_bits_of_quotient() {
     let (q, _, _) = two64_plus_1.rem_quo_status(&i(1), f, DivRemMode::TowardZero);
     assert_eq!(q, 1);
 }
+
+#[test]
+fn divrem_supports_all_libbf_quotient_modes() {
+    // (a, b, mode, expected q, expected r)
+    use DivRemMode::*;
+    let cases = [
+        (4, 3, Ceil, 2, -2),
+        (-4, 3, Ceil, -1, -1),
+        (4, 3, AwayFromZero, 2, -2),
+        (-4, 3, AwayFromZero, -2, 2),
+        (5, 2, NearestAway, 3, -1),
+        (-5, 2, NearestAway, -3, 1),
+        (5, 2, NearestEven, 2, 1),
+        (-4, 3, Euclidean, -2, 2),
+        (4, -3, Euclidean, -1, 1),
+        (-4, 3, Floor, -2, 2),
+        (-4, 3, TowardZero, -1, -1),
+    ];
+    for (a, b, mode, eq, er) in cases {
+        let f = BigFormat::BINARY64;
+        let (q, r, st) = i(a).div_rem_status(&i(b), f, mode);
+        assert!(st.is_empty());
+        assert_eq!((to_i(&q), to_i(&r)), (eq, er), "divrem({a}, {b}, {mode:?})");
+        let (r2, st) = i(a).rem_status(&i(b), f, mode);
+        assert!(st.is_empty());
+        assert_eq!(to_i(&r2), er, "rem({a}, {b}, {mode:?})");
+    }
+}

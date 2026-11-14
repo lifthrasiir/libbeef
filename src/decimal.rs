@@ -1206,15 +1206,20 @@ fn divrem_scaled_decimal_limbs(
     if !r_abs.is_empty() {
         let is_ceil = match mode {
             DivRemMode::TowardZero => false,
-            DivRemMode::NearestEven => {
+            DivRemMode::NearestEven | DivRemMode::NearestAway => {
                 let twice_r = mul_abs_dec_limbs(&r_abs, &[2]);
                 match cmp_abs_dec_limbs(&twice_r, &rhs) {
                     core::cmp::Ordering::Greater => true,
-                    core::cmp::Ordering::Equal => q_abs.first().is_some_and(|limb| limb & 1 != 0),
+                    core::cmp::Ordering::Equal => {
+                        mode == DivRemMode::NearestAway
+                            || q_abs.first().is_some_and(|limb| limb & 1 != 0)
+                    }
                     core::cmp::Ordering::Less => false,
                 }
             }
             DivRemMode::Floor => q_negative,
+            DivRemMode::Ceil => !q_negative,
+            DivRemMode::AwayFromZero => true,
             DivRemMode::Euclidean => a.sign.is_negative(),
         };
 
