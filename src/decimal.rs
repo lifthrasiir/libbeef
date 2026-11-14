@@ -618,7 +618,7 @@ impl BigDecimal {
         }
         let inf = BigFormat {
             precision: Precision::Infinite,
-            ..BigFormat::DECIMAL64
+            ..BigFormat::INTERNAL
         };
         let mut result = Self::from_i64(1);
         let mut base = self.clone();

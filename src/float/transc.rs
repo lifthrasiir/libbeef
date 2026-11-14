@@ -891,7 +891,7 @@ fn fmt_bits(prec: u64) -> BigFormat {
     BigFormat {
         precision: Precision::Bits(prec),
         rounding: Rounding::NearestEven,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     }
 }
 
@@ -899,14 +899,14 @@ fn fmt_faithful(prec: u64) -> BigFormat {
     BigFormat {
         precision: Precision::Bits(prec),
         rounding: Rounding::Faithful,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     }
 }
 
 fn fmt_inf() -> BigFormat {
     BigFormat {
         precision: Precision::Infinite,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     }
 }
 

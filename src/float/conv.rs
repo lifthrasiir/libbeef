@@ -73,11 +73,11 @@ fn bf_pow_ui(base: &BigFloat, exp: u64, prec: u64, rounding: Rounding) -> BigFlo
     let fmt = BigFormat {
         precision: Precision::Bits(prec),
         rounding,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     };
     let inf = BigFormat {
         precision: Precision::Infinite,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     };
     let actual_fmt = if prec == u64::MAX { inf } else { fmt };
 
@@ -132,7 +132,7 @@ fn bf_integer_from_radix_rec(
 ) -> BigFloat {
     let inf = BigFormat {
         precision: Precision::Infinite,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     };
     if n == 1 {
         return BigFloat::from_u64(tab[0]);
@@ -176,7 +176,7 @@ fn bf_integer_to_radix_rec(
 ) {
     let inf = BigFormat {
         precision: Precision::Infinite,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     };
 
     if n == 1 {
@@ -209,7 +209,7 @@ fn bf_integer_to_radix_rec(
             BigFormat {
                 precision: Precision::Bits(b_inv_prec),
                 rounding: Rounding::NearestEven,
-                ..BigFormat::BINARY64
+                ..BigFormat::INTERNAL
             },
         );
         pow_tab[level as usize] = (b, b_inv);
@@ -223,7 +223,7 @@ fn bf_integer_to_radix_rec(
         BigFormat {
             precision: Precision::Bits(q_prec),
             rounding: Rounding::NearestEven,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         },
     );
     q = q.rint(Rounding::TowardZero);
@@ -304,7 +304,7 @@ fn bf_mul_pow_radix(
         let b = bf_pow_ui_ui(radix as u64, e, u64::MAX, Rounding::NearestEven);
         let inf = BigFormat {
             precision: Precision::Infinite,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         };
         if expn_sign {
             let r = t.div(
@@ -312,7 +312,7 @@ fn bf_mul_pow_radix(
                 BigFormat {
                     precision: Precision::Bits(t.limbs().len() as u64 * 64),
                     rounding: Rounding::NearestEven,
-                    ..BigFormat::BINARY64
+                    ..BigFormat::INTERNAL
                 },
             );
             return (r, Status::empty());
@@ -330,7 +330,7 @@ fn bf_mul_pow_radix(
         let work_fmt = BigFormat {
             precision: Precision::Bits(work_prec),
             rounding: Rounding::NearestEven,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         };
         let b = bf_pow_ui_ui(radix as u64, e, work_prec, Rounding::NearestEven);
         let r = if expn_sign {
@@ -372,7 +372,7 @@ fn bf_convert_to_radix(
 
     let _inf = BigFormat {
         precision: Precision::Infinite,
-        ..BigFormat::BINARY64
+        ..BigFormat::INTERNAL
     };
 
     loop {
@@ -390,7 +390,7 @@ fn bf_convert_to_radix(
             let work_fmt = BigFormat {
                 precision: Precision::Bits(work_prec),
                 rounding: Rounding::NearestEven,
-                ..BigFormat::BINARY64
+                ..BigFormat::INTERNAL
             };
 
             let pow = bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven);
@@ -594,7 +594,7 @@ impl BigFloat {
             radix,
             format: BigFormat {
                 precision: Precision::Infinite,
-                ..BigFormat::BINARY64
+                ..BigFormat::INTERNAL
             },
             allow_hex_prefix: false,
             allow_binary_prefix: false,

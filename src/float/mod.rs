@@ -822,7 +822,7 @@ impl BigFloat {
         let fmt = BigFormat {
             precision: Precision::Bits(n_digits.saturating_mul(4).saturating_add(32).max(64)),
             rounding,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         };
         let rounded = self.round(fmt);
         if let Some(int_str) = rounded.to_integer_string_radix(radix) {
@@ -1533,13 +1533,13 @@ impl BigFloat {
 
         let inf = BigFormat {
             precision: Precision::Infinite,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         };
         let prec = ((self.exp + 1) / 2).max(2) as u64;
         let root = self.sqrt(BigFormat {
             precision: Precision::Bits(prec),
             rounding: Rounding::TowardZero,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         });
         let root = root.rint(Rounding::TowardZero);
         let root_sq = root.mul(&root, inf);
@@ -2141,7 +2141,7 @@ impl BigFloat {
                 &rounded_literal,
                 BigFormat {
                     precision: Precision::Bits(decimal_digits_to_binary_precision(digits)),
-                    ..BigFormat::BINARY64
+                    ..BigFormat::INTERNAL
                 },
             )
             .expect("internally generated decimal literal")
@@ -5923,7 +5923,7 @@ impl Integer {
     fn inf_format() -> BigFormat {
         BigFormat {
             precision: Precision::Infinite,
-            ..BigFormat::BINARY64
+            ..BigFormat::INTERNAL
         }
     }
 }

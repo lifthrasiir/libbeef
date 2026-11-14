@@ -53,6 +53,22 @@ impl BigFormat {
         radix_point_precision: false,
     };
 
+    /// Working format for internal computations: unbounded precision,
+    /// maximal exponent range, round-to-nearest-even, no subnormals.
+    ///
+    /// Corresponds to libbf passing `BF_RNDN` with the default
+    /// `BF_EXP_BITS_MAX` exponent width to intermediate operations.
+    /// Internal code should derive working formats from this (overriding
+    /// `precision`/`rounding` as needed) instead of from a public IEEE format,
+    /// whose limited exponent range would make intermediates overflow.
+    pub(crate) const INTERNAL: Self = Self {
+        precision: Precision::Infinite,
+        rounding: Rounding::NearestEven,
+        exp_bits: ExpBits::Max,
+        subnormal: false,
+        radix_point_precision: false,
+    };
+
     /// IEEE 754 decimal64 format: 16 decimal digits, 11-bit exponent,
     /// round-to-nearest-even, subnormals enabled.
     ///
