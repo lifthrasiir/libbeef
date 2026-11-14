@@ -70,10 +70,11 @@ fn bf_pow_ui(base: &BigFloat, exp: u64, prec: u64, rounding: Rounding) -> BigFlo
     if exp == 0 {
         return BigFloat::from_u64(1);
     }
+    // libbf passes `BF_FLAG_EXT_EXP` whenever the precision is finite.
     let fmt = BigFormat {
         precision: Precision::Bits(prec),
         rounding,
-        ..BigFormat::INTERNAL
+        ..BigFormat::INTERNAL_EXT
     };
     let inf = BigFormat {
         precision: Precision::Infinite,
@@ -334,7 +335,7 @@ fn bf_mul_pow_radix(
         let work_fmt = BigFormat {
             precision: Precision::Bits(work_prec),
             rounding: Rounding::NearestEven,
-            ..BigFormat::INTERNAL
+            ..BigFormat::INTERNAL_EXT
         };
         let b = bf_pow_ui_ui(radix as u64, e, work_prec, Rounding::NearestEven);
         let r = if expn_sign {
@@ -394,7 +395,7 @@ fn bf_convert_to_radix(
             let work_fmt = BigFormat {
                 precision: Precision::Bits(work_prec),
                 rounding: Rounding::NearestEven,
-                ..BigFormat::INTERNAL
+                ..BigFormat::INTERNAL_EXT
             };
 
             let pow = bf_pow_ui_ui(radix as u64, abs_exp, work_prec, Rounding::NearestEven);

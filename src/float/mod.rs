@@ -1468,7 +1468,7 @@ impl BigFloat {
             self.exp = RAW_EXP_ZERO;
             return Status::empty();
         }
-        self.exp -= ((old_len - self.limbs.len()) as i64) * 64;
+        self.exp = self.exp.wrapping_sub(((old_len - self.limbs.len()) as i64) * 64);
         let l = self.limbs.len();
         let top = self.limbs[l - 1];
         let shift = top.leading_zeros();
@@ -1480,7 +1480,7 @@ impl BigFloat {
                 *limb = (*limb << shift) | carry;
                 carry = next;
             }
-            self.exp -= i64::from(shift);
+            self.exp = self.exp.wrapping_sub(i64::from(shift));
         }
         self.round_finite_to_format_mut(format)
     }
@@ -2036,7 +2036,7 @@ impl BigFloat {
 
         let significant_bits = l * 64;
         if prec > 0 && significant_bits <= prec {
-            if e_max < i64::MAX && self.exp > e_max {
+            if self.exp > e_max {
                 let (r, s) = self.set_overflow(prec1, format);
                 *self = r;
                 return s;
@@ -2307,9 +2307,7 @@ fn bf_round_in_place(
             return status;
         } else {
             *r = BigFloat::zero(r.sign);
-            if e_min > i64::MIN / 2 {
-                status |= Status::UNDERFLOW;
-            }
+            status |= Status::UNDERFLOW;
             return status;
         }
     }
@@ -2359,7 +2357,7 @@ fn bf_round_in_place(
     }
 
     // Check overflow
-    if e_max < i64::MAX && r.exp > e_max {
+    if r.exp > e_max {
         let (result, status) = r.set_overflow(prec1, format);
         *r = result;
         return status;
@@ -2578,8 +2576,10 @@ fn bf_add_internal_into(
         return r.normalize_and_round_mut(format);
     }
 
-    let d = a.exp - b.exp;
-    let tot_len = (a.limbs.len() as i64).max((b.limbs.len() as i64) + (d + 63) / 64);
+    // Exponents of rounded values are within +-2^61, but `from_raw` accepts any
+    // exponent; wrap around as C does rather than panic.
+    let d = a.exp.wrapping_sub(b.exp);
+    let tot_len = (a.limbs.len() as i64).max((b.limbs.len() as i64) + d.wrapping_add(63) / 64);
 
     let r_len = match format.precision {
         Precision::Bits(prec) => {
@@ -2601,7 +2601,7 @@ fn bf_add_internal_into(
     let r_len_usize = r_len as usize;
 
     let a_offset = (a.limbs.len() as i64) - r_len;
-    let b_bit_offset = ((b.limbs.len() as i64) - r_len) * 64 + d;
+    let b_bit_offset = (((b.limbs.len() as i64) - r_len) * 64).wrapping_add(d);
     let mut carry = u64::from(is_sub);
     let mut z = 0_u64;
     let sub_mask = if is_sub { u64::MAX } else { 0 };
@@ -3254,15 +3254,15 @@ fn bf_tdivremu(a: &BigFloat, b: &BigFloat, inf: BigFormat) -> (BigFloat, BigFloa
 #[inline]
 fn exp_range_from_format(format: &BigFormat) -> (i64, i64) {
     use crate::format::ExpBits;
-    match format.exp_bits {
-        ExpBits::Bits(bits) if bits > 0 && bits < 64 => {
-            let e_range = 1_i64 << (bits - 1);
-            let e_min = -e_range + 3;
-            let e_max = e_range;
-            (e_min, e_max)
-        }
-        ExpBits::Max | ExpBits::Extended | ExpBits::Bits(_) => (i64::MIN / 2, i64::MAX / 2),
-    }
+    // As in libbf's `bf_get_exp_bits`: `BF_EXP_BITS_MAX` is `LIMB_BITS - 3` and
+    // `BF_FLAG_EXT_EXP` gives one more bit.
+    let bits = match format.exp_bits {
+        ExpBits::Max => 61,
+        ExpBits::Extended => 62,
+        ExpBits::Bits(bits) => i64::from(bits).clamp(1, 62),
+    };
+    let e_range = 1_i64 << (bits - 1);
+    (-e_range + 3, e_range)
 }
 
 #[inline]

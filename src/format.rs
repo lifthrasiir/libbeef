@@ -69,6 +69,15 @@ impl BigFormat {
         radix_point_precision: false,
     };
 
+    /// Like [`INTERNAL`](Self::INTERNAL) but with the extended exponent range,
+    /// corresponding to libbf's `BF_FLAG_EXT_EXP`. libbf uses that flag only
+    /// at a few places (the squarings of `exp`, the intermediates of `pow`, and
+    /// the powers of the radix in string conversion).
+    pub(crate) const INTERNAL_EXT: Self = Self {
+        exp_bits: ExpBits::Extended,
+        ..Self::INTERNAL
+    };
+
     /// IEEE 754 decimal64 format: 16 decimal digits, 11-bit exponent,
     /// round-to-nearest-even, subnormals enabled.
     ///

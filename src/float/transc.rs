@@ -345,7 +345,7 @@ impl BigFloat {
         };
 
         if self.exp < 0 {
-            let e = 2 * self.exp - 1;
+            let e = self.exp.wrapping_mul(2).wrapping_sub(1);
             if e < -(precision as i64 + 2) {
                 let r = Self::from_i64(1);
                 let (result, status) = add_epsilon(&r, e, true, format);
@@ -865,6 +865,24 @@ fn fmt_faithful(prec: u64) -> BigFormat {
     }
 }
 
+/// `fmt_bits` with libbf's `BF_FLAG_EXT_EXP`.
+fn fmt_bits_ext(prec: u64) -> BigFormat {
+    BigFormat {
+        precision: Precision::Bits(prec),
+        rounding: Rounding::NearestEven,
+        ..BigFormat::INTERNAL_EXT
+    }
+}
+
+/// `fmt_faithful` with libbf's `BF_FLAG_EXT_EXP`.
+fn fmt_faithful_ext(prec: u64) -> BigFormat {
+    BigFormat {
+        precision: Precision::Bits(prec),
+        rounding: Rounding::Faithful,
+        ..BigFormat::INTERNAL_EXT
+    }
+}
+
 fn fmt_inf() -> BigFormat {
     BigFormat {
         precision: Precision::Infinite,
@@ -1029,7 +1047,7 @@ fn pow_int(x: &BigFloat, y: &BigFloat, prec: u64) -> (BigFloat, Status) {
     let y1 = y.abs().get_uint64().unwrap_or(u64::MAX);
     // XXX (from libbf): proof for the added precision
     let ceil_log2_y1 = u64::from(64 - (y1 - 1).leading_zeros());
-    let fmt1 = fmt_bits(prec + ceil_log2_y1 * 2 + 8);
+    let fmt1 = fmt_bits_ext(prec + ceil_log2_y1 * 2 + 8);
     let mut status = Status::empty();
     let mut r = x.clone();
     for i in (0..63 - y1.leading_zeros()).rev() {
@@ -1275,8 +1293,13 @@ fn exp_internal(a: &BigFloat, prec: u64) -> (BigFloat, Status) {
         r.add_assign(&one, fmt1);
     }
 
+    // As in libbf, the squarings use the extended exponent range.
+    let fmt_sqr = BigFormat {
+        exp_bits: crate::format::ExpBits::Extended,
+        ..fmt1
+    };
     for _ in 0..k {
-        r.sqr_assign(fmt1);
+        r.sqr_assign(fmt_sqr);
     }
 
     r.mul_exp2_mut(n);
@@ -1566,8 +1589,8 @@ fn asin_internal(a: &BigFloat, prec: u64, is_acos: bool) -> (BigFloat, Status) {
 fn pow_generic(x: &BigFloat, y: &BigFloat, prec: u64) -> (BigFloat, Status) {
     let prec1 = prec + 32;
 
-    let mut t = x.log(fmt_faithful(prec1));
-    t.mul_assign(y, fmt_faithful(prec1));
+    let mut t = x.log(fmt_faithful_ext(prec1));
+    t.mul_assign(y, fmt_faithful_ext(prec1));
     if t.is_nan() {
         return (BigFloat::nan(), Status::INEXACT);
     }
