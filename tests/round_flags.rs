@@ -42,3 +42,30 @@ fn a2_exact_value_below_e_min_without_subnormal_flushes() {
     let f = fmt(Precision::Bits(64), Rounding::NearestEven, 11, true);
     check_fin(&val(-1030, 1 << 63).round_status(f), -1030, 1 << 63, Status::empty());
 }
+
+#[test]
+fn a3_nonpositive_precision_reports_underflow_and_inexact() {
+    let rint = |v: &BigFloat, rnd| v.rint_status(rnd);
+    // rint(0.75) and rint(0.25).
+    check_fin(&rint(&val(0, 0xC000_0000_0000_0000), Rounding::NearestEven), 1, 1 << 63, UF);
+    check_zero(&rint(&val(-1, 1 << 63), Rounding::NearestEven), UF);
+    check_fin(&rint(&val(-1, 1 << 63), Rounding::TowardPositive), 1, 1 << 63, UF);
+    // No underflow once the precision is positive.
+    check_fin(
+        &rint(&val(2, 0xA000_0000_0000_0000), Rounding::NearestEven),
+        2,
+        1 << 63,
+        Status::INEXACT,
+    );
+}
+
+#[test]
+fn a3_subnormal_rounding_to_zero_is_inexact() {
+    // 2^-1074 * 3 * 2^-12 in binary64.
+    let a = val(-1073, 1 << 63);
+    let b = val(-11, 0xC000_0000_0000_0000);
+    for rnd in [Rounding::NearestEven, Rounding::Faithful] {
+        let f = fmt(Precision::Bits(53), rnd, 11, true);
+        check_zero(&a.mul_status(&b, f), UF);
+    }
+}

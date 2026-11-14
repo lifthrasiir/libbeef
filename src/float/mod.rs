@@ -2298,23 +2298,16 @@ fn bf_round_in_place(
     };
 
     if prec <= 0 {
-        let mut status = Status::empty();
-        if inexact {
-            status |= Status::INEXACT;
-        }
+        // As in `__bf_round`, this is always reported as inexact underflow.
+        let status = Status::UNDERFLOW | Status::INEXACT;
         if add_one {
             r.limbs.clear();
             r.limbs.push(1_u64 << 63);
             r.exp += 1 - prec;
-            if r.exp < e_min {
-                status |= Status::UNDERFLOW;
-            }
-            return status;
         } else {
             *r = BigFloat::zero(r.sign);
-            status |= Status::UNDERFLOW;
-            return status;
         }
+        return status;
     }
 
     if add_one {
