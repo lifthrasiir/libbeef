@@ -115,3 +115,25 @@ fn pow_infinite_precision_power_of_two() {
     assert_eq!(st, Status::empty());
     assert_eq!(r, pow2(100));
 }
+
+#[test]
+fn small_argument_epsilon_status() {
+    // bf_add_epsilon returns the status of bf_add, so a subnormal or
+    // underflowing result reports UNDERFLOW.
+    let x = BigFloat::from_raw(Sign::Positive, -1073, vec![1 << 63]); // 2^-1074
+    let f = BigFormat::BINARY64;
+    let under = Status::UNDERFLOW | Status::INEXACT;
+    let (r, st) = x.sin_status(f);
+    assert_eq!((r.raw_exp(), st), (-1073, under));
+    assert_eq!(x.tan_status(f).1, under);
+    assert_eq!(x.asin_status(f).1, under);
+    assert_eq!(x.neg().atan_status(f).1, under);
+    // Without subnormals the result flushes to zero.
+    let nosub = BigFormat {
+        subnormal: false,
+        ..f
+    };
+    let (r, st) = x.sin_status(nosub);
+    assert!(r.is_zero());
+    assert_eq!(st, under);
+}

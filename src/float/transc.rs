@@ -1158,9 +1158,7 @@ fn add_epsilon(a: &BigFloat, e: i64, e_sign: bool, format: BigFormat) -> (BigFlo
     let mut t = BigFloat::from_i64(1);
     t.sign = Sign::from_negative(e_sign);
     t.exp = t.exp.saturating_add(e);
-    let r = a.add(&t, format);
-    let status = Status::INEXACT;
-    (r, status)
+    a.add_status(&t, format)
 }
 
 fn ziv_rounding(
