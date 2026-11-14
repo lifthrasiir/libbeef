@@ -16,8 +16,13 @@ use crate::format::BigFormat;
 /// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ParseOptions {
-    /// The radix (base) to use when no prefix is recognized (2..=36).
+    /// The radix (base) to use when no prefix is recognized (2..=36), or 0 to
+    /// detect the radix from a prefix and otherwise use 10. Any other value
+    /// makes parsing fail.
     /// Corresponds to the `radix` parameter of `bf_atof` in libbf.
+    ///
+    /// As in libbf, the `0x` prefix is only honoured for radix 0 and 16, and
+    /// the `0b` and `0o` prefixes only for radix 0.
     pub radix: u8,
     /// The rounding mode and precision to apply after parsing.
     /// Corresponds to the `bf_flags_t` parameter of `bf_atof` in libbf.
@@ -46,10 +51,11 @@ pub struct ParseOptions {
 }
 
 impl ParseOptions {
-    /// Returns options that mimic C-style auto-detection: radix 10 by default,
-    /// with `0x`, `0b`, and `0o` prefixes all recognized.
+    /// Returns options that mimic C-style auto-detection (radix 0): radix 10 by
+    /// default, with `0x`, `0b`, and `0o` prefixes all recognized.
     pub fn auto_radix() -> Self {
         Self {
+            radix: 0,
             allow_hex_prefix: true,
             allow_binary_prefix: true,
             allow_octal_prefix: true,

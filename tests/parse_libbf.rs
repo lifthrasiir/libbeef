@@ -199,3 +199,95 @@ fn zero_with_exponent_in_power_of_two_radix() {
     assert_eq!(show(2, 53, ".p5"), "ERR");
     assert!(BigFloat::from_str_radix("0p5", 2).unwrap().is_zero());
 }
+
+/// Options like libbf's flags: `no_hex` is `BF_ATOF_NO_HEX`, `bin_oct` is
+/// `BF_ATOF_BIN_OCT`.
+fn flag_opts(radix: u8, no_hex: bool, bin_oct: bool) -> ParseOptions {
+    ParseOptions {
+        allow_hex_prefix: !no_hex,
+        allow_binary_prefix: bin_oct,
+        allow_octal_prefix: bin_oct,
+        ..opts(radix, Some(53), Rounding::NearestEven)
+    }
+}
+
+#[test]
+fn prefix_needs_a_digit() {
+    let o = flag_opts(0, false, true);
+    // A prefix without a following digit is NaN (consuming the prefix).
+    assert_eq!(show_with(o, "0b.1"), "NaN st=0 n=2");
+    assert_eq!(show_with(o, "0b"), "NaN st=0 n=2");
+    assert_eq!(show_with(o, "0o8"), "NaN st=0 n=2");
+    assert_eq!(show_with(o, "0x"), "NaN st=0 n=2");
+    assert_eq!(show_with(o, "0x.8"), "NaN st=0 n=2");
+    assert_eq!(show_with(o, "0b1"), "+1:8000000000000000 st=0 n=3");
+    assert_eq!(show_with(o, "0b102"), "+2:8000000000000000 st=0 n=4");
+    assert_eq!(show_with(o, "0o17"), "+4:f000000000000000 st=0 n=4");
+    assert_eq!(show_with(o, "-0x1p4"), "-5:8000000000000000 st=0 n=6");
+    assert_eq!(
+        show_with(flag_opts(16, false, false), "+0x.8"),
+        "NaN st=0 n=3"
+    );
+}
+
+#[test]
+fn prefix_depends_on_radix() {
+    // 0x needs radix 0 or 16, 0b and 0o need radix 0.
+    for radix in [2, 8, 10] {
+        assert_eq!(
+            show_with(flag_opts(radix, false, true), "0x1f"),
+            "+0 st=0 n=1"
+        );
+    }
+    assert_eq!(show_with(flag_opts(10, false, true), "0b1"), "+0 st=0 n=1");
+    assert_eq!(show_with(flag_opts(2, false, true), "0b1"), "+0 st=0 n=1");
+    assert_eq!(show_with(flag_opts(2, false, true), "0o7"), "+0 st=0 n=1");
+    assert_eq!(
+        show_with(flag_opts(36, false, false), "0x1"),
+        "+11:94a0000000000000 st=0 n=3"
+    );
+    // In radix 16, `0b1` is just the hex number 0xb1.
+    assert_eq!(
+        show_with(flag_opts(16, false, true), "0b1"),
+        "+8:b100000000000000 st=0 n=3"
+    );
+    assert_eq!(
+        show_with(flag_opts(16, false, false), "0x1f"),
+        "+5:f800000000000000 st=0 n=4"
+    );
+    assert_eq!(show_with(flag_opts(16, true, false), "0x1f"), "+0 st=0 n=1");
+}
+
+#[test]
+fn radix_zero_is_auto() {
+    assert_eq!(
+        show_with(flag_opts(0, false, false), "0x1f"),
+        "+5:f800000000000000 st=0 n=4"
+    );
+    assert_eq!(show_with(flag_opts(0, true, false), "0x1f"), "+0 st=0 n=1");
+    assert_eq!(show_with(flag_opts(0, false, false), "0b1"), "+0 st=0 n=1");
+    assert_eq!(
+        show_with(flag_opts(0, false, false), "1e2"),
+        "+7:c800000000000000 st=0 n=3"
+    );
+    assert_eq!(
+        show_with(flag_opts(0, false, false), "12.5"),
+        "+4:c800000000000000 st=0 n=4"
+    );
+    assert_eq!(
+        show_with(flag_opts(0, false, false), "inf"),
+        "+Inf st=0 n=3"
+    );
+    assert_eq!(
+        show_with(ParseOptions::auto_radix(), "0b101"),
+        "+3:a000000000000000 st=0 n=5"
+    );
+}
+
+#[test]
+fn invalid_radix_is_an_error() {
+    for radix in [1, 37, 255] {
+        assert_eq!(show_with(flag_opts(radix, false, false), "12"), "ERR");
+        assert_eq!(show_with(flag_opts(radix, false, false), "nan"), "ERR");
+    }
+}

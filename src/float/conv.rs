@@ -553,7 +553,7 @@ impl BigFloat {
     /// let f = val.to_f64(libbeef::Rounding::NearestEven);
     /// assert!((f - 3.14).abs() < 1e-10);
     ///
-    /// let hex_opts = ParseOptions { allow_hex_prefix: true, ..ParseOptions::default() };
+    /// let hex_opts = ParseOptions { radix: 16, allow_hex_prefix: true, ..ParseOptions::default() };
     /// let (val, _consumed) = BigFloat::parse("0xff", hex_opts).unwrap();
     /// let f = val.to_f64(libbeef::Rounding::NearestEven);
     /// assert_eq!(f, 255.0);
@@ -734,6 +734,10 @@ fn bf_atof_internal(
     let mut pos = 0;
 
     let mut radix = options.radix;
+    // Radix 0 selects the radix from the prefix, defaulting to 10.
+    if radix == 1 || radix > 36 {
+        return Err(ParseFloatError::new());
+    }
 
     if options.allow_nan_inf
         && radix <= 16
@@ -754,18 +758,26 @@ fn bf_atof_internal(
 
     if pos < bytes.len() && bytes[pos] == b'0' && pos + 1 < bytes.len() {
         let next = bytes[pos + 1];
-        if (next == b'x' || next == b'X') && options.allow_hex_prefix {
-            radix = 16;
+        // As in libbf, 0x needs radix 0 or 16 while 0o and 0b need radix 0.
+        let prefix_radix = if (next == b'x' || next == b'X')
+            && (radix == 0 || radix == 16)
+            && options.allow_hex_prefix
+        {
+            16
+        } else if (next == b'o' || next == b'O') && radix == 0 && options.allow_octal_prefix {
+            8
+        } else if (next == b'b' || next == b'B') && radix == 0 && options.allow_binary_prefix {
+            2
+        } else {
+            0
+        };
+        if prefix_radix != 0 {
+            radix = prefix_radix;
             pos += 2;
+            // There must be a digit after the prefix.
             if pos >= bytes.len() || to_digit(bytes[pos]) >= radix {
                 return Ok((BigFloat::nan(), Status::empty(), pos));
             }
-        } else if (next == b'o' || next == b'O') && options.allow_octal_prefix {
-            radix = 8;
-            pos += 2;
-        } else if (next == b'b' || next == b'B') && options.allow_binary_prefix {
-            radix = 2;
-            pos += 2;
         }
     } else if options.allow_nan_inf
         && radix <= 16
@@ -781,6 +793,10 @@ fn bf_atof_internal(
             Status::empty(),
             end,
         ));
+    }
+
+    if radix == 0 {
+        radix = 10;
     }
 
     let is_power_of_two = radix.is_power_of_two();
