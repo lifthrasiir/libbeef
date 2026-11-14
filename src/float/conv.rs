@@ -442,74 +442,78 @@ fn bf_convert_to_radix(
     }
 }
 
-fn output_digits_general(a: &BigFloat, radix: u8, n_digits: u64, dot_pos: u64) -> String {
-    let mut out = String::new();
+/// Port of libbf's `output_digits`. `a` must be an integer if the radix is
+/// not a power of two. A dot is added before the `dot_pos` digit; `dot_pos ==
+/// n_digits` does not display the dot. `n_digits >= 1`.
+fn output_digits(out: &mut String, a: &BigFloat, radix: u8, n_digits: u64, dot_pos: u64) {
+    let digits_per_limb: u64;
+    let pos_incr: i64;
+    let radix_bits: u32;
+    let mut pos: i64;
+    let mut first_buf_pos: u64;
+    let radix_limbs: Vec<u64>;
 
     if radix.is_power_of_two() {
-        let radix_bits = radix.trailing_zeros();
-        let _digits_per_limb = 64 / radix_bits;
-        let _mask = ((1_u64) << radix_bits) - 1;
-        let exp = a.raw_exp();
-
-        for i in 0..n_digits {
-            if i == dot_pos && i > 0 {
-                out.push('.');
-            }
-            let bit_pos = exp - 1 - (i as i64 * radix_bits as i64);
-            let mut digit_val = 0_u8;
-            for b in 0..radix_bits {
-                if a.get_bit_at_exp_pub(bit_pos - b as i64) {
-                    digit_val |= 1 << (radix_bits - 1 - b);
-                }
-            }
-            out.push(digit_char(digit_val) as char);
-        }
+        radix_bits = radix.trailing_zeros();
+        digits_per_limb = 64 / radix_bits as u64;
+        pos_incr = (digits_per_limb * radix_bits as u64) as i64;
+        // Digits are aligned relative to the radix point.
+        pos = a.limbs().len() as i64 * 64
+            + smod(a.raw_exp().wrapping_neg(), radix_bits as i64) as i64;
+        first_buf_pos = 0;
+        radix_limbs = Vec::new();
     } else {
-        let digits_per_limb = DIGITS_PER_LIMB_TABLE[radix as usize - 2] as u64;
+        digits_per_limb = DIGITS_PER_LIMB_TABLE[radix as usize - 2] as u64;
         let radixl = get_limb_radix(radix);
         let n = n_digits.div_ceil(digits_per_limb);
-        let radix_limbs = bf_integer_to_radix(a, n, radixl);
+        radix_limbs = bf_integer_to_radix(a, n, radixl);
+        radix_bits = 0;
+        pos = n as i64;
+        pos_incr = 1;
+        first_buf_pos = n * digits_per_limb - n_digits;
+    }
 
-        let first_buf_pos = (n * digits_per_limb - n_digits) as usize;
-        let mut pos = n as i64;
-        let mut buf_pos = digits_per_limb as usize;
-        let mut buf = Vec::new();
-        let mut i = 0_u64;
-        let mut first = true;
-
-        while i < n_digits {
-            if buf_pos == digits_per_limb as usize {
-                pos -= 1;
-                let v = if pos >= 0 && (pos as usize) < radix_limbs.len() {
-                    radix_limbs[pos as usize]
-                } else {
-                    0
-                };
-                buf.clear();
+    let mut buf: Vec<u8> = Vec::new();
+    let mut buf_pos = digits_per_limb;
+    let mut i = 0_u64;
+    while i < n_digits {
+        if buf_pos == digits_per_limb {
+            pos -= pos_incr;
+            if radix_bits == 0 {
+                let v = radix_limbs.get(pos as usize).copied().unwrap_or(0);
                 limb_to_a(&mut buf, v, radix, digits_per_limb as usize);
-                buf_pos = if first { first_buf_pos } else { 0 };
-                first = false;
+            } else {
+                let v = get_bits_from_bf(a, pos);
+                limb_to_a2(&mut buf, v, radix_bits, digits_per_limb as usize);
             }
-
-            if i == dot_pos && i > 0 {
+            buf_pos = first_buf_pos;
+            first_buf_pos = 0;
+        }
+        let l = if i < dot_pos {
+            dot_pos
+        } else {
+            if i == dot_pos {
                 out.push('.');
             }
-
-            let l = if i < dot_pos {
-                dot_pos - i
-            } else {
-                n_digits - i
-            };
-            let avail = digits_per_limb as usize - buf_pos;
-            let take = (l as usize).min(avail);
-            for j in 0..take {
-                out.push(buf[buf_pos + j] as char);
-            }
-            buf_pos += take;
-            i += take as u64;
+            n_digits
+        };
+        let l = (digits_per_limb - buf_pos).min(l - i);
+        for j in 0..l {
+            out.push(buf[(buf_pos + j) as usize] as char);
         }
+        buf_pos += l;
+        i += l;
     }
-    out
+}
+
+/// Port of libbf's `limb_to_a2` (power of two radixes).
+fn limb_to_a2(buf: &mut Vec<u8>, mut n: u64, radix_bits: u32, len: usize) {
+    buf.resize(len, 0);
+    let mask = (1_u64 << radix_bits) - 1;
+    for i in (0..len).rev() {
+        buf[i] = digit_char((n & mask) as u8);
+        n >>= radix_bits;
+    }
 }
 
 fn limb_to_a(buf: &mut Vec<u8>, mut n: u64, radix: u8, len: usize) {
@@ -522,10 +526,6 @@ fn limb_to_a(buf: &mut Vec<u8>, mut n: u64, radix: u8, len: usize) {
 }
 
 impl BigFloat {
-    pub(crate) fn get_bit_at_exp_pub(&self, bit_exp: i64) -> bool {
-        self.get_bit_at_exp(bit_exp)
-    }
-
     /// Parses a number from a string in a given radix, returning the value and
     /// the number of bytes consumed. Corresponds to `bf_atof` in libbf.
     ///
@@ -677,7 +677,7 @@ impl BigFloat {
     /// assert_eq!(s, "3e2");
     ///
     /// let hex = val.to_string_radix(16, 1, Rounding::NearestEven, true).unwrap();
-    /// assert_eq!(hex, "fp4");
+    /// assert_eq!(hex, "1p8");
     /// ```
     pub fn to_string_radix(
         &self,
@@ -1086,98 +1086,57 @@ fn bf_ftoa_internal(
         return Some(out);
     }
 
-    let is_pow2 = radix.is_power_of_two();
-    let radix_bits = if is_pow2 {
-        radix.trailing_zeros() as i64
-    } else {
-        0
-    };
-
-    if is_pow2 {
-        if a.is_zero() {
-            out.push('0');
-            if prec > 1 {
-                out.push('.');
-                for _ in 1..prec {
-                    out.push('0');
-                }
-            }
-            if force_exp {
-                out.push('p');
-                out.push('0');
-            }
-            return Some(out);
+    let n_digits = prec;
+    let n_max = n_digits as i64 + if radix.is_power_of_two() { 0 } else { 4 };
+    let a1;
+    let n;
+    if radix.is_power_of_two() {
+        let radix_bits = radix.trailing_zeros() as i64;
+        let mut r = a.clone();
+        if !r.is_zero() {
+            // Align to the radix point.
+            let prec_bits = prec as i64 * radix_bits - smod(-r.raw_exp(), radix_bits) as i64;
+            let format = BigFormat {
+                precision: Precision::Bits(prec_bits.max(0) as u64),
+                rounding,
+                ..BigFormat::INTERNAL
+            };
+            r = r.round_status_owned(format).0;
         }
-
-        let n_digits = prec;
-        let n = ceil_div_i64(a.raw_exp(), radix_bits);
-
-        let digits = output_digits_general(a, radix, n_digits, 1);
-        out.push_str(&digits);
-
-        if force_exp || n != 1 {
-            out.push('p');
-            out.push_str(&((n - 1) * radix_bits).to_string());
-        }
-    } else {
-        if a.is_zero() {
-            out.push('0');
-            if prec > 1 {
-                out.push('.');
-                for _ in 1..prec {
-                    out.push('0');
-                }
-            }
-            if force_exp {
-                if radix <= 10 {
-                    out.push('e');
-                } else {
-                    out.push('@');
-                }
-                out.push('0');
-            }
-            return Some(out);
-        }
-
-        let a_abs = a.abs();
-        let n_digits = prec;
-
-        let (a1, n) = bf_convert_to_radix(&a_abs, radix, n_digits, rounding, false, 0);
-
-        if a1.is_zero() && !force_exp {
-            out.push('0');
+        n = if r.is_zero() {
+            1
         } else {
-            let n_max = n_digits as i64 + 4;
-            if force_exp || n <= -6 || n > n_max {
-                let digits = output_digits_general(&a1, radix, n_digits, 1);
-                out.push_str(&digits);
-                if radix <= 10 {
-                    out.push('e');
-                } else {
-                    out.push('@');
-                }
-                out.push_str(&(n - 1).to_string());
-            } else if n <= 0 {
-                out.push_str("0.");
-                for _ in 0..(-n) {
-                    out.push('0');
-                }
-                let digits = output_digits_general(&a1, radix, n_digits, n_digits);
-                out.push_str(&digits);
-            } else {
-                let n_u = n as u64;
-                if n_digits <= n_u {
-                    let digits = output_digits_general(&a1, radix, n_digits, n_digits);
-                    out.push_str(&digits);
-                    for _ in 0..(n_u - n_digits) {
-                        out.push('0');
-                    }
-                } else {
-                    let digits = output_digits_general(&a1, radix, n_digits, n_u);
-                    out.push_str(&digits);
-                }
-            }
+            ceil_div_i64(r.raw_exp(), radix_bits)
+        };
+        a1 = r;
+    } else {
+        let (r, nn) = bf_convert_to_radix(&a.abs(), radix, n_digits, rounding, false, 0);
+        n = if r.is_zero() { 1 } else { nn };
+        a1 = r;
+    }
+
+    if force_exp || n <= -6 || n > n_max {
+        output_digits(&mut out, &a1, radix, n_digits, 1);
+        if radix.is_power_of_two() && radix <= 16 {
+            out.push('p');
+            out.push_str(&((n - 1) * radix.trailing_zeros() as i64).to_string());
+        } else {
+            out.push(if radix <= 10 { 'e' } else { '@' });
+            out.push_str(&(n - 1).to_string());
         }
+    } else if n <= 0 {
+        out.push_str("0.");
+        for _ in 0..(-n) {
+            out.push('0');
+        }
+        output_digits(&mut out, &a1, radix, n_digits, n_digits);
+    } else if n_digits <= n as u64 {
+        output_digits(&mut out, &a1, radix, n_digits, n_digits);
+        for _ in 0..(n as u64 - n_digits) {
+            out.push('0');
+        }
+    } else {
+        output_digits(&mut out, &a1, radix, n_digits, n as u64);
     }
 
     Some(out)
