@@ -147,3 +147,13 @@ fn ziv_rounding_subnormal_underflow() {
     assert!(r.sign() == Sign::Negative);
     assert_eq!(st, Status::UNDERFLOW | Status::INEXACT);
 }
+
+#[test]
+fn pow_exact_power2n_with_63_fractional_bits() {
+    // y = 3 * 2^-63: `check_exact_power2n` is called with n = 63.
+    let y = BigFloat::from_raw(Sign::Positive, -61, vec![3 << 62]);
+    let (r, st) = BigFloat::from_i64(2).pow_status(&y, BigFormat::BINARY64);
+    assert_eq!(st, Status::INEXACT);
+    assert_eq!(r.raw_exp(), 1);
+    assert_eq!(r.limbs(), &[1u64 << 63]);
+}

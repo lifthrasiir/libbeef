@@ -1127,7 +1127,7 @@ fn check_exact_power2n(x: &BigFloat, n: i64) -> Option<BigFloat> {
         }
         0
     } else {
-        if e & ((1_i64 << n) - 1) != 0 {
+        if (e as u64) & ((1_u64 << n) - 1) != 0 {
             return None;
         }
         e >> n
