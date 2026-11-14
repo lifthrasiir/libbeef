@@ -668,6 +668,49 @@ impl FromStr for BigFloat {
     }
 }
 
+/// Parses the optional sign and digits of an exponent, like the exponent loop
+/// of libbf's `bf_atof_internal`. `*p` is just after the exponent separator.
+///
+/// Stops accumulating once the exponent is too large for the result to be
+/// anything but an overflow or underflow, returning `Err(is_negative)` with
+/// `*p` at the first unconsumed digit.
+fn parse_exponent(bytes: &[u8], p: &mut usize) -> Result<i64, bool> {
+    let mut exp_is_neg = false;
+    if *p < bytes.len() && bytes[*p] == b'+' {
+        *p += 1;
+    } else if *p < bytes.len() && bytes[*p] == b'-' {
+        exp_is_neg = true;
+        *p += 1;
+    }
+    let mut expn = 0_i64;
+    while *p < bytes.len() {
+        let c = to_digit(bytes[*p]);
+        if c >= 10 {
+            break;
+        }
+        if expn > (i64::MAX - 2 - 9) / 10 {
+            return Err(exp_is_neg);
+        }
+        *p += 1;
+        expn = expn * 10 + c as i64;
+    }
+    Ok(if exp_is_neg { -expn } else { expn })
+}
+
+/// The result of an exponent that overflowed in [`parse_exponent`].
+fn exponent_overflow(is_neg: bool, exp_is_neg: bool, p: usize) -> (BigFloat, Status, usize) {
+    let sign = Sign::from_negative(is_neg);
+    if exp_is_neg {
+        (BigFloat::zero(sign), Status::UNDERFLOW | Status::INEXACT, p)
+    } else {
+        (
+            BigFloat::infinity(sign),
+            Status::OVERFLOW | Status::INEXACT,
+            p,
+        )
+    }
+}
+
 fn bf_atof_internal(
     input: &str,
     options: ParseOptions,
@@ -809,23 +852,9 @@ fn bf_atof_internal(
         let ch = bytes[p];
         if (radix == 10 && (ch == b'e' || ch == b'E')) || (radix != 10 && ch == b'@') {
             p += 1;
-            let mut exp_is_neg = false;
-            if p < bytes.len() && bytes[p] == b'+' {
-                p += 1;
-            } else if p < bytes.len() && bytes[p] == b'-' {
-                exp_is_neg = true;
-                p += 1;
-            }
-            while p < bytes.len() {
-                let c = to_digit(bytes[p]);
-                if c >= 10 {
-                    break;
-                }
-                expn = expn.saturating_mul(10).saturating_add(c as i64);
-                p += 1;
-            }
-            if exp_is_neg {
-                expn = -expn;
+            match parse_exponent(bytes, &mut p) {
+                Ok(e) => expn = e,
+                Err(neg) => return Ok(exponent_overflow(is_neg, neg, p)),
             }
         }
     }
@@ -840,7 +869,7 @@ fn bf_atof_internal(
 
     limb_digits.reverse();
     let l = limb_digits.len() as u64;
-    expn -= (l as i64) * (digits_per_limb as i64) - int_len;
+    expn = expn.saturating_sub((l as i64) * (digits_per_limb as i64) - int_len);
 
     let t = bf_integer_from_radix(&limb_digits, l, radix);
     let mut t_signed = t;
@@ -937,54 +966,21 @@ fn parse_power_of_two(
     let mut is_bin_exp = false;
     if pos < bytes.len() {
         let ch = bytes[pos];
-        if ch == b'p' || ch == b'P' {
-            is_bin_exp = true;
+        if ch == b'p' || ch == b'P' || ch == b'@' {
+            is_bin_exp = ch != b'@';
             pos += 1;
-            let mut exp_is_neg = false;
-            if pos < bytes.len() && bytes[pos] == b'+' {
-                pos += 1;
-            } else if pos < bytes.len() && bytes[pos] == b'-' {
-                exp_is_neg = true;
-                pos += 1;
-            }
-            while pos < bytes.len() {
-                let c = to_digit(bytes[pos]);
-                if c >= 10 {
-                    break;
-                }
-                expn = expn.saturating_mul(10).saturating_add(c as i64);
-                pos += 1;
-            }
-            if exp_is_neg {
-                expn = -expn;
-            }
-        } else if (radix == 10 && (ch == b'e' || ch == b'E')) || (radix != 10 && ch == b'@') {
-            pos += 1;
-            let mut exp_is_neg = false;
-            if pos < bytes.len() && bytes[pos] == b'+' {
-                pos += 1;
-            } else if pos < bytes.len() && bytes[pos] == b'-' {
-                exp_is_neg = true;
-                pos += 1;
-            }
-            while pos < bytes.len() {
-                let c = to_digit(bytes[pos]);
-                if c >= 10 {
-                    break;
-                }
-                expn = expn.saturating_mul(10).saturating_add(c as i64);
-                pos += 1;
-            }
-            if exp_is_neg {
-                expn = -expn;
+            match parse_exponent(bytes, &mut pos) {
+                Ok(e) => expn = e,
+                Err(neg) => return Ok(exponent_overflow(is_neg, neg, pos)),
             }
         }
     }
 
+    // libbf wraps here ("XXX: may overflow"); saturate instead.
     if !is_bin_exp {
-        expn *= radix_bits as i64;
+        expn = expn.saturating_mul(radix_bits as i64);
     }
-    expn += int_len * radix_bits as i64;
+    expn = expn.saturating_add(int_len * radix_bits as i64);
 
     let sign = Sign::from_negative(is_neg);
     let bf = BigFloat::from_raw(sign, expn, limbs);
