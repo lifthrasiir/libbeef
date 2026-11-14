@@ -1559,18 +1559,19 @@ impl BigFloat {
         if self.is_zero() {
             return Some(0);
         }
-        if !self.is_finite() {
+        if !self.is_finite() || self.exp > 64 {
             return None;
         }
-        let (f, status) = self.to_f64_status(Rounding::TowardZero);
-        if status.contains(Status::OVERFLOW) {
-            return None;
+        let magnitude = match self.to_abs_int_limbs()?.as_slice() {
+            [] => 0,
+            [lo] => *lo,
+            _ => return None,
+        };
+        if self.sign.is_negative() {
+            0i64.checked_sub_unsigned(magnitude)
+        } else {
+            i64::try_from(magnitude).ok()
         }
-        let val = f as i64;
-        if val as f64 != f {
-            return None;
-        }
-        Some(val)
     }
 
     /// Attempts to convert this value to a `u64`, returning `None` if the value
@@ -1580,7 +1581,7 @@ impl BigFloat {
         if self.is_zero() {
             return Some(0);
         }
-        if !self.is_finite() || self.sign.is_negative() {
+        if !self.is_finite() || self.sign.is_negative() || self.exp > 64 {
             return None;
         }
         let abs_limbs = self.to_abs_int_limbs()?;

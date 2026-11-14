@@ -170,3 +170,27 @@ fn logic_and_negative_with_wider_positive() {
     let expected = b.add(&libbeef::BigFloat::from_i64(1), inf).neg();
     assert_eq!(x.cmp_total(&expected), core::cmp::Ordering::Equal);
 }
+
+#[test]
+fn get_int64_is_exact_beyond_f64_mantissa() {
+    let exact = libbeef::BigFormat {
+        precision: libbeef::Precision::Infinite,
+        ..libbeef::BigFormat::BINARY128
+    };
+    let two = BigFloat::from_i64(2);
+    let pow2 = |e: i64| two.pow(&BigFloat::from_i64(e), exact);
+
+    for v in [i64::MAX, i64::MIN, (1 << 60) + 1, -(1 << 60) - 1, 0, -1, 1] {
+        assert_eq!(BigFloat::from_i64(v).get_int64(), Some(v));
+    }
+    // Out of range.
+    assert_eq!(pow2(63).get_int64(), None);
+    assert_eq!(pow2(63).add(&BigFloat::from_i64(1), exact).neg().get_int64(), None);
+    assert_eq!(pow2(10_000).get_int64(), None);
+    assert_eq!(pow2(10_000).get_uint64(), None);
+    // Not an integer, even though the integer part does not fit in f64.
+    let half = BigFloat::from_f64(0.5);
+    assert_eq!(pow2(60).add(&half, exact).get_int64(), None);
+    assert_eq!(half.get_int64(), None);
+    assert_eq!(BigFloat::from_f64(-2.5).get_int64(), None);
+}
