@@ -779,10 +779,31 @@ impl BigFloat {
         }
 
         let x_bits = x_abs.exp - x_abs.get_exp_min();
-        if x_bits == 1 {
-            let b = x_abs.exp - 1;
-            let e_bf = rhs.mul_i64(b, fmt_bits(64));
-            let e = e_bf.to_f64(Rounding::TowardZero) as i64;
+        // pow(2^b, y) = 2^(b*y), but only when b*y is an integer. Unlike libbf
+        // this point is only reached for non-integer y, so check exactness.
+        // (b*y needs at most 63 fractional bits of y, so 128 bits suffice for
+        // any b*y whose integer part could possibly be a meaningful exponent.)
+        let pow2_exp = if x_bits == 1 {
+            let (e_bf, mul_status) = rhs.mul_i64_status(x_abs.exp - 1, fmt_bits(128));
+            if mul_status.is_empty() {
+                e_bf.to_signed_int_limbs()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(e) = pow2_exp {
+            let magnitude = match e.limbs.as_slice() {
+                [] => 0,
+                [lo] => i64::try_from(*lo).unwrap_or(i64::MAX),
+                _ => i64::MAX,
+            };
+            let e = if e.sign.is_negative() {
+                -magnitude
+            } else {
+                magnitude
+            };
             let result = Self::from_i64(1);
             let (mut result, status) = result.mul_exp2(e).round_status_owned(adjusted_format);
             if r_sign && result.is_finite() && !result.is_zero() {

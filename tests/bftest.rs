@@ -811,6 +811,28 @@ fn bftest_transcendental_exact_identities_work_without_f64_fallback() {
     assert_eq!(one.pow(&BigFloat::from_f64(0.5), f), one);
 }
 
+// Issue #3: `pow(2^b, y)` must not truncate `b*y` toward an integer.
+#[test]
+fn bftest_pow_power_of_two_base_fractional_exponent() {
+    let f = BigFormat::BINARY64;
+    let p = |x: f64, y: f64| {
+        let (r, status) = BigFloat::from_f64(x).pow_status(&BigFloat::from_f64(y), f);
+        (r.to_f64(Rounding::NearestEven), status)
+    };
+
+    // b*y is not an integer: the result is irrational.
+    assert_eq!(p(2.0, 0.5), (2f64.sqrt(), Status::INEXACT));
+    assert_eq!(p(4.0, 0.25), (2f64.sqrt(), Status::INEXACT));
+    assert_eq!(p(0.5, 0.5), (0.5f64.sqrt(), Status::INEXACT));
+    assert_eq!(p(8.0, -0.5), (0.125f64.sqrt(), Status::INEXACT));
+
+    // b*y is an integer: the result is an exact power of two.
+    assert_eq!(p(4.0, 0.5), (2.0, Status::empty()));
+    assert_eq!(p(4.0, -0.5), (0.5, Status::empty()));
+    assert_eq!(p(16.0, 0.75), (8.0, Status::empty()));
+    assert_eq!(p(0.25, 1.5), (0.125, Status::empty()));
+}
+
 #[test]
 fn bftest_pow_integer_exponent_uses_limb_arithmetic() {
     let exact = BigFormat {
