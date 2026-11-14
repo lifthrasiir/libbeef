@@ -69,3 +69,33 @@ fn a3_subnormal_rounding_to_zero_is_inexact() {
         check_zero(&a.mul_status(&b, f), UF);
     }
 }
+
+#[test]
+fn a4_faithful_rounding_always_reports_inexact() {
+    let f = fmt(Precision::Bits(53), Rounding::Faithful, 11, true);
+    // round(1) and round(1 + 2^-100).
+    check_fin(&val(1, 1 << 63).round_status(f), 1, 1 << 63, Status::INEXACT);
+    let x = BigFloat::from_raw(Sign::Positive, 1, vec![1 << 27, 1 << 63]);
+    check_fin(&x.round_status(f), 1, 1 << 63, Status::INEXACT);
+    // Subnormal range: 2^-1031 is exact, but reported as inexact underflow.
+    check_fin(&val(-1030, 1 << 63).round_status(f), -1030, 1 << 63, UF);
+    // Rounding to 2 bits: the add_one decision is the guard bit.
+    let f2 = fmt(Precision::Bits(2), Rounding::Faithful, 11, false);
+    for (v, exp, limb) in [
+        (3_u64, 2_i64, 0xC000_0000_0000_0000_u64),
+        (7, 4, 1 << 63),
+        (5, 3, 0xC000_0000_0000_0000),
+        (11, 4, 0xC000_0000_0000_0000),
+    ] {
+        let x = BigFloat::from_u64(v);
+        check_fin(&x.round_status(f2), exp, limb, Status::INEXACT);
+    }
+    // rint(0.75) and rint(1.25).
+    check_fin(&val(0, 0xC000_0000_0000_0000).rint_status(Rounding::Faithful), 1, 1 << 63, UF);
+    check_fin(
+        &val(2, 0xA000_0000_0000_0000).rint_status(Rounding::Faithful),
+        2,
+        0xC000_0000_0000_0000,
+        Status::INEXACT,
+    );
+}

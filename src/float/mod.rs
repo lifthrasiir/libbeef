@@ -2035,7 +2035,8 @@ impl BigFloat {
         };
 
         let significant_bits = l * 64;
-        if prec > 0 && significant_bits <= prec {
+        // Faithful rounding always reports INEXACT, so it takes the full path.
+        if prec > 0 && significant_bits <= prec && format.rounding != Rounding::Faithful {
             // Nothing to round, but the range checks of `__bf_round` apply.
             if self.exp < e_min && !format.subnormal {
                 *self = BigFloat::zero(self.sign);
@@ -2249,52 +2250,26 @@ fn bf_round_in_place(
     // sticky bits = all bits below the guard bit
     let guard_pos = l * 64 - 1 - prec; // bit position of guard bit
 
-    let (add_one, inexact) = if format.rounding == Rounding::Faithful {
-        // Faithful rounding: just use the guard bit as add_one, always "inexact"
-        let guard = if prec >= l * 64 || prec < 0 {
-            false
-        } else {
-            get_abs_bit(&r.limbs, guard_pos as usize)
-        };
-        (guard, guard)
-    } else {
-        // Sticky: any bits set below the guard bit position
+    // As in `bf_get_rnd_add`. Faithful rounding does not honor the INEXACT
+    // flag: it is always reported (`bit0` is forced to 1).
+    let sticky = format.rounding == Rounding::Faithful || {
         let sticky_scan_pos = (prec + 1).max(0);
-        let sticky = if sticky_scan_pos >= l * 64 {
-            false
-        } else {
-            scan_bit_nz(&r.limbs, l * 64 - 1 - sticky_scan_pos)
-        };
-
-        let guard = if prec < 0 || prec >= l * 64 {
-            false
-        } else {
-            get_abs_bit(&r.limbs, guard_pos as usize)
-        };
-
-        let inexact = guard || sticky;
-        let add_one = inexact
-            && match format.rounding {
-                Rounding::NearestEven => {
-                    if guard {
-                        if sticky {
-                            true
-                        } else {
-                            // round to even: check the bit at prec-1
-                            prec >= 1 && get_abs_bit(&r.limbs, (l * 64 - prec) as usize)
-                        }
-                    } else {
-                        false
-                    }
-                }
-                Rounding::NearestAway => guard,
-                Rounding::TowardZero => false,
-                Rounding::TowardPositive => !r.sign.is_negative(),
-                Rounding::TowardNegative => r.sign.is_negative(),
-                Rounding::AwayFromZero => true,
-                Rounding::Faithful => unreachable!(),
-            };
-        (add_one, inexact)
+        sticky_scan_pos < l * 64 && scan_bit_nz(&r.limbs, l * 64 - 1 - sticky_scan_pos)
+    };
+    let guard = prec >= 0 && prec < l * 64 && get_abs_bit(&r.limbs, guard_pos as usize);
+    let inexact = guard || sticky;
+    let add_one = match format.rounding {
+        Rounding::NearestEven => {
+            guard
+                && (sticky
+                    // Round to even: look at the bit at `prec - 1`.
+                    || (prec >= 1 && get_abs_bit(&r.limbs, (l * 64 - prec) as usize)))
+        }
+        Rounding::NearestAway | Rounding::Faithful => guard,
+        Rounding::TowardZero => false,
+        Rounding::TowardPositive => inexact && !r.sign.is_negative(),
+        Rounding::TowardNegative => inexact && r.sign.is_negative(),
+        Rounding::AwayFromZero => inexact,
     };
 
     if prec <= 0 {
