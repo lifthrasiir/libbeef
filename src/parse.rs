@@ -45,8 +45,11 @@ pub struct ParseOptions {
     /// When `true`, the strings `NaN` and `Inf`/`Infinity` are recognized.
     /// Setting this to `false` corresponds to the `BF_ATOF_NO_NAN_INF` flag in libbf.
     pub allow_nan_inf: bool,
-    /// When `true`, the returned exponent is in the input radix rather than base-2.
-    /// Corresponds to the `BF_ATOF_EXPONENT` flag in libbf.
+    /// When `true` and the radix is not a power of two, parsing returns the
+    /// unscaled and unrounded integer mantissa instead of the value, and the
+    /// radix exponent that scales it, as in `bf_atof2` with the
+    /// `BF_ATOF_EXPONENT` flag in libbf. The exponent is only available from
+    /// [`BigFloat::parse_with_exponent_status`](crate::BigFloat::parse_with_exponent_status).
     pub return_radix_exponent: bool,
 }
 

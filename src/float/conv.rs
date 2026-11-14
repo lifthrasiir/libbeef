@@ -569,7 +569,41 @@ impl BigFloat {
         input: &str,
         options: ParseOptions,
     ) -> Result<(Self, Status, usize), ParseFloatError> {
-        bf_atof_internal(input, options)
+        let mut exponent = 0;
+        bf_atof_internal(input, options, &mut exponent)
+    }
+
+    /// Parses a number from a string like [`parse_status`](Self::parse_status),
+    /// additionally returning the radix exponent. Corresponds to `bf_atof2` in
+    /// libbf.
+    ///
+    /// If [`ParseOptions::return_radix_exponent`] is set and the radix is not
+    /// a power of two, the value is not scaled: the parsed number is the
+    /// returned value times `radix` raised to the returned exponent, where the
+    /// value is the digits read as an integer (padded with zeros to a whole
+    /// number of limbs) and is not rounded. Otherwise the value is rounded as
+    /// usual and the exponent is 0.
+    ///
+    /// The result is `(value, exponent, status, bytes consumed)`.
+    ///
+    /// ```
+    /// use libbeef::parse::ParseOptions;
+    /// use libbeef::BigFloat;
+    ///
+    /// let opts = ParseOptions { return_radix_exponent: true, ..ParseOptions::default() };
+    /// let (mantissa, exp, _status, _n) =
+    ///     BigFloat::parse_with_exponent_status("1.2345", opts).unwrap();
+    /// // 1234500000000000000 * 10^-18
+    /// assert_eq!(mantissa, BigFloat::from_u64(1_234_500_000_000_000_000));
+    /// assert_eq!(exp, -18);
+    /// ```
+    pub fn parse_with_exponent_status(
+        input: &str,
+        options: ParseOptions,
+    ) -> Result<(Self, i64, Status, usize), ParseFloatError> {
+        let mut exponent = 0;
+        let (v, st, n) = bf_atof_internal(input, options, &mut exponent)?;
+        Ok((v, exponent, st, n))
     }
 
     /// Parses a floating-point literal in the given radix (2..=36), consuming
@@ -729,6 +763,7 @@ fn exponent_overflow(is_neg: bool, exp_is_neg: bool, p: usize) -> (BigFloat, Sta
 fn bf_atof_internal(
     input: &str,
     options: ParseOptions,
+    pexponent: &mut i64,
 ) -> Result<(BigFloat, Status, usize), ParseFloatError> {
     let bytes = input.as_bytes();
     let mut pos = 0;
@@ -911,6 +946,11 @@ fn bf_atof_internal(
     } else {
         t
     };
+
+    if options.return_radix_exponent {
+        *pexponent = expn;
+        return Ok((t_signed, Status::empty(), p));
+    }
 
     let (result, status) = bf_mul_pow_radix(
         &t_signed,

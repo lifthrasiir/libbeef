@@ -291,3 +291,89 @@ fn invalid_radix_is_an_error() {
         assert_eq!(show_with(flag_opts(radix, false, false), "nan"), "ERR");
     }
 }
+
+/// Like `show_with`, with the radix exponent appended (libbf's `bf_atof2`).
+fn show_exp(radix: u8, prec: Option<u64>, s: &str) -> String {
+    let o = ParseOptions {
+        return_radix_exponent: true,
+        ..opts(radix, prec, Rounding::NearestEven)
+    };
+    match BigFloat::parse_with_exponent_status(s, o) {
+        Ok((v, e, st, n)) => format!("{} st={} n={} e={}", pr(&v), st.bits(), n, e),
+        Err(_) => "ERR".into(),
+    }
+}
+
+#[test]
+fn return_radix_exponent() {
+    let m = "+61:890e99acb9c20000";
+    assert_eq!(
+        show_exp(10, Some(53), "1.2345"),
+        format!("{m} st=0 n=6 e=-18")
+    );
+    assert_eq!(
+        show_exp(10, Some(53), "-1.2345e10"),
+        "-61:890e99acb9c20000 st=0 n=10 e=-8"
+    );
+    assert_eq!(
+        show_exp(10, None, "0.1"),
+        "+60:de0b6b3a76400000 st=0 n=3 e=-19"
+    );
+    assert_eq!(
+        show_exp(10, Some(5), "123456789"),
+        "+61:891087a3b46da000 st=0 n=9 e=-10"
+    );
+    assert_eq!(show_exp(10, Some(53), "0"), "+0 st=0 n=1 e=0");
+    assert_eq!(show_exp(10, Some(53), "-0.0"), "-0 st=0 n=4 e=-19");
+    assert_eq!(show_exp(10, Some(53), "0e5"), "+0 st=0 n=3 e=0");
+    assert_eq!(
+        show_exp(10, Some(53), "1e-400"),
+        "+60:de0b6b3a76400000 st=0 n=6 e=-418"
+    );
+    assert_eq!(
+        show_exp(3, Some(53), "12.1@5"),
+        "+63:c7f75a7456aa8e60 st=0 n=6 e=-33"
+    );
+    assert_eq!(
+        show_exp(10, Some(53), ".5"),
+        "+63:8ac7230489e80000 st=0 n=2 e=-19"
+    );
+    assert_eq!(
+        show_exp(10, Some(53), "12345678901234567890123.5e7"),
+        "+124:949b0f6f0023313c449b79db5cac0000 st=0 n=27 e=-8"
+    );
+    // Power-of-two radixes are scaled normally; the exponent is 0.
+    assert_eq!(
+        show_exp(16, Some(53), "ff.8"),
+        "+8:ff80000000000000 st=0 n=4 e=0"
+    );
+    assert_eq!(
+        show_exp(16, Some(53), "ff.8p3"),
+        "+11:ff80000000000000 st=0 n=6 e=0"
+    );
+    assert_eq!(
+        show_exp(2, Some(53), "101.1"),
+        "+3:b000000000000000 st=0 n=5 e=0"
+    );
+    // Special values and overflowing exponents.
+    assert_eq!(
+        show_exp(10, Some(53), "1e99999999999999999999"),
+        "+Inf st=20 n=20 e=0"
+    );
+    assert_eq!(show_exp(10, Some(53), "inf"), "+Inf st=0 n=3 e=0");
+}
+
+#[test]
+fn radix_exponent_option_without_exponent_output() {
+    // `parse_status` with the option set returns the unscaled mantissa.
+    let o = ParseOptions {
+        return_radix_exponent: true,
+        ..opts(10, Some(53), Rounding::NearestEven)
+    };
+    assert_eq!(show_with(o, "1.2345"), "+61:890e99acb9c20000 st=0 n=6");
+    // Without the option the exponent is always 0 and the value is scaled.
+    let o = opts(10, Some(53), Rounding::NearestEven);
+    let (v, e, _, _) = BigFloat::parse_with_exponent_status("1.2345", o).unwrap();
+    assert_eq!(e, 0);
+    assert_eq!(v.to_f64(Rounding::NearestEven), 1.2345);
+}
